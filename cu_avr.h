@@ -1,0 +1,118 @@
+/*
+ *  AVR microcontroller emulation
+ *
+ *  Copyright (C) 2016
+ *    Sandor Zsuga (Jubatian)
+ *  Uzem (the base of CUzeBox) is copyright (C)
+ *    David Etherton,
+ *    Eric Anderton,
+ *    Alec Bourque (Uze),
+ *    Filipe Rinaldi,
+ *    Sandor Zsuga (Jubatian),
+ *    Matt Pandina (Artcfox)
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
+
+#ifndef CU_AVR_H
+#define CU_AVR_H
+
+
+
+#include "cu_types.h"
+
+
+/*
+** Resets the CPU as if it was power-cycled. It properly initializes
+** everything from the state as if cu_avr_crom_update() and cu_avr_io_update()
+** was called.
+*/
+void  cu_avr_reset(void);
+
+
+/*
+** Run emulation. Returns according to the return values defined in cu_types
+** (emulating up to about 2050 cycles).
+*/
+auint cu_avr_run(void);
+
+
+/*
+** Returns emulator's cycle counter. It may be used to time emulation when it
+** doesn't generate proper video signal. The cycle counter spans the full
+** auint range and wraps around.
+*/
+auint cu_avr_getcycle(void);
+
+
+/*
+** Return current row. Note that continuing emulation will modify the returned
+** structure's contents.
+*/
+cu_row_t const* cu_avr_get_row(void);
+
+
+/*
+** Return frame info. Note that continuing emulation will modify the returned
+** structure's contents.
+*/
+cu_frameinfo_t const* cu_avr_get_frameinfo(void);
+
+
+/*
+** Returns memory access info block. It can be written (with zeros) to clear
+** flags which are only set by the emulator. Note that the highest 256 bytes
+** of the RAM come first here! (so address 0x0100 corresponds to AVR address
+** 0x0100)
+*/
+uint8* cu_avr_get_meminfo(void);
+
+
+/*
+** Returns I/O register access info block. It can be written (with zeros) to
+** clear flags which are only set by the emulator. It doesn't reflect implicit
+** accesses, only those explicitly performed by read or write operations.
+*/
+uint8* cu_avr_get_ioinfo(void);
+
+
+/*
+** Returns AVR CPU state structure. It may be written, the Code ROM must be
+** recompiled (by cu_avr_crom_update()) if anything in that area was updated
+** or freshly written, and the IO space needs to be updated (by
+** cu_avr_io_update()) if anything in that area was modified.
+*/
+cu_state_cpu_t* cu_avr_get_state(void);
+
+
+/*
+** Updates a section of the Code ROM. This must be called after writing into
+** the Code ROM so the emulator recompiles the affected instructions. The
+** "base" and "len" parameters specify the range to update in bytes.
+*/
+void  cu_avr_crom_update(auint base, auint len);
+
+
+/*
+** Updates the I/O area. If any change is performed in the I/O register
+** contents (iors, 0x20 - 0xFF), this have to be called to update internal
+** emulator state over it. It also updates state related to additional
+** variables in the structure (such as the watchdog timer).
+*/
+void  cu_avr_io_update(void);
+
+
+#endif

@@ -1,0 +1,11 @@
+# _obj_ directory if exists contains objects
+/_obj_
+# Various outputs
+/cuzebox
+/cuzebox.exe
+/cuzebox.html
+/cuzebox.data
+/cuzebox.html.mem
+/cuzebox.js
+# The gamefile.uze ROM needed by the Emscripten build
+/gamefile.uze
