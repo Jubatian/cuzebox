@@ -797,8 +797,9 @@ static void  cu_avr_write_io(auint port, auint val)
          (eeprom_op_end    - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
      cycle_next_event = eeprom_op_end;  /* Set EEPROM HW processing target */
     }
-    UPDATE_HARDWARE; /* 2 cycles write stall. */
-    UPDATE_HARDWARE; /* Note: IT checks are slightly off due to this, but this inaccuracy is tolerable. */
+    UPDATE_HARDWARE;  /* 2 cycles write stall. */
+    UPDATE_HARDWARE;  /* Note: IT checks are slightly off due to this, but this inaccuracy is tolerable. */
+    cval &= ~0x04U;   /* Turn off EEMPE (succesfully entered programming) */
    }
 
    if (cval & 0x01U){ /* EEPROM read (EERE) strobe */
