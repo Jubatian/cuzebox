@@ -34,6 +34,7 @@
 #include "guicore.h"
 #include "audio.h"
 #include "frame.h"
+#include "eepdump.h"
 #include <SDL2/SDL.h>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -70,6 +71,9 @@ static auint main_t5_frp[3] = {30U, 30U, 30U};
 
 /* Previous cycle counter value for the 500ms tick */
 static auint main_t5_cc;
+
+/* Previous state of EEPROM changes to save only after a write burst was completed */
+static boole main_peepch = FALSE;
 
 /* Default game to start without parameters */
 static const char* main_game = "gamefile.uze";
@@ -140,8 +144,10 @@ static void main_loop(void)
  auint ccur;
  auint cdif;
  boole fdrop = FALSE;
+ boole eepch;
  char  tstr[100];
  SDL_Event sdlevent;
+ cu_state_cpu_t* ecpu;
 
  /* First "sandbox" the drift to silently skip main loops if the emulator is
  ** running too fast */
@@ -189,6 +195,16 @@ static void main_loop(void)
  (void)(frame_run(fdrop)); /* Don't care for return, it will be about a frame worth of emulation anyway */
  audio_sendframe(frame_getaudio());
  guicore_update(fdrop);
+
+ /* Check for EEPROM changes and save as needed */
+
+ eepch = cu_avr_eeprom_ischanged(TRUE);
+ if ( (main_peepch) &&
+      (!eepch) ){ /* End of EEPROM write burst */
+  ecpu = cu_avr_get_state();
+  eepdump_save(&(ecpu->eepr[0]));
+ }
+ main_peepch = eepch;
 
  /* Generate FPS info */
 
@@ -248,7 +264,7 @@ int main (int argc, char** argv)
 
 
  ecpu = cu_avr_get_state();
- memset (&(ecpu->eepr[0]), (char)(0xFFU), sizeof(ecpu->eepr));
+ eepdump_load(&(ecpu->eepr[0]));
 
  if (!cu_ufile_load(game, &(ecpu->crom[0]), &ufhead)){
   if (!cu_hfile_load(game, &(ecpu->crom[0]))){
@@ -279,6 +295,9 @@ int main (int argc, char** argv)
  emscripten_set_main_loop(&main_loop, 0, 1);
 #else
  while (!main_exit){ main_loop(); }
+
+ ecpu = cu_avr_get_state();
+ eepdump_save(&(ecpu->eepr[0]));
 
  audio_quit();
  guicore_quit();

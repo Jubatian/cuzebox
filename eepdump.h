@@ -1,5 +1,5 @@
 /*
- *  Base types
+ *  EEPROM dump functions
  *
  *  Copyright (C) 2016
  *    Sandor Zsuga (Jubatian)
@@ -26,30 +26,35 @@
 */
 
 
-#ifndef TYPES_H
-#define TYPES_H
+
+#ifndef EEPDUMP_H
+#define EEPDUMP_H
 
 
-#include <stdint.h>             /* Fixed width integer types */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
+#include "types.h"
 
 
-typedef   signed  int   asint;  /* Architecture signed integer (At least 2^31) */
-typedef unsigned  int   auint;  /* Architecture unsigned integer (At least 2^31) */
-typedef  int16_t        sint16;
-typedef uint16_t        uint16;
-typedef  int32_t        sint32;
-typedef uint32_t        uint32;
-typedef   int8_t        sint8;
-typedef  uint8_t        uint8;
-typedef _Bool           boole;
 
-/* True and False to be used with the "boole" type where needed. */
+/*
+** Note: Later this might be expanded to support setting paths and other
+** necessities for the EEPROM dumps.
+*/
 
-#define TRUE  1
-#define FALSE 0
+
+
+/*
+** Tries to load EEPROM state from an eeprom dump. If the EEPROM dump does not
+** exist, it clears the EEPROM.
+*/
+void eepdump_load(uint8* eeprom);
+
+
+/*
+** Tries to write out EEPROM state into an eeprom dump. It fails silently if
+** this is not possible.
+*/
+void eepdump_save(uint8 const* eeprom);
 
 
 #endif

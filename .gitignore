@@ -9,3 +9,5 @@
 /cuzebox.js
 # The gamefile.uze ROM needed by the Emscripten build
 /gamefile.uze
+# If the program created an eeprom dump, ignore that too
+/eeprom.bin

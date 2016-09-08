@@ -113,6 +113,9 @@ boole           eeprom_writing;
 /* EEPROM operation cycle goal. EEPROM operation takes place when cycle_counter equals this */
 auint           eeprom_op_end;
 
+/* EEPROM change indicator */
+boole           eeprom_changed;
+
 
 
 /* Watchdog 16 millisecond timer base tick count */
@@ -430,6 +433,7 @@ static void cu_avr_hwexec(void)
    t0 = cpu_state.iors[CU_IO_EECR] & 0x30U; /* EEPROM write mode */
    t1 = ( ((auint)(cpu_state.iors[CU_IO_EEARH]) << 8) |
           ((auint)(cpu_state.iors[CU_IO_EEARL])     ) ) & 0x7FFU;
+   t2 = cpu_state.eepr[t1];
    if       (t0 == 0x00U){ /* Erase and Write */
     cpu_state.eepr[t1]  = cpu_state.iors[CU_IO_EEDR];
    }else if (t0 == 0x10U){ /* Erase only */
@@ -438,6 +442,7 @@ static void cu_avr_hwexec(void)
     cpu_state.eepr[t1] |= cpu_state.iors[CU_IO_EEDR];
    }else{                  /* Reserved: Do nothing */
    }
+   if (t2 != t1){ eeprom_changed = TRUE; }
    cpu_state.iors[CU_IO_EECR] &= ~0x02U; /* Clear EEPE (programming completed) */
 
   }else{
@@ -1661,6 +1666,19 @@ uint8* cu_avr_get_ioinfo(void)
 
 
 /*
+** Returns whether the EEPROM changed since the last clear of this indicator.
+** Calling cu_avr_io_update() clears this indicator (as well as resetting by
+** vu_avr_reset()). Passing TRUE also clears it.
+*/
+boole cu_avr_eeprom_ischanged(boole clear)
+{
+ boole ret = eeprom_changed;
+ if (clear){ eeprom_changed = FALSE; }
+ return ret;
+}
+
+
+/*
 ** Returns AVR CPU state structure. It may be written, the Code ROM must be
 ** recompiled (by cu_avr_crom_update()) if anything in that area was updated
 ** or freshly written.
@@ -1730,6 +1748,8 @@ void  cu_avr_crom_update(auint base, auint len)
 void  cu_avr_io_update(void)
 {
  auint t0;
+
+ eeprom_changed = FALSE;
 
  t0    = (cpu_state.iors[CU_IO_TCNT1H] << 8) |
          (cpu_state.iors[CU_IO_TCNT1L]     );

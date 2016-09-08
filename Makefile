@@ -49,6 +49,7 @@ OBJECTS += $(OBD)/cu_spi.o
 OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/frame.o
+OBJECTS += $(OBD)/eepdump.o
 ifeq ($(TSYS),emscripten)
 ROMFILE  = gamefile.uze
 else
@@ -100,6 +101,9 @@ $(OBD)/audio.o: audio.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
 $(OBD)/frame.o: frame.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSPD)
+
+$(OBD)/eepdump.o: eepdump.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 

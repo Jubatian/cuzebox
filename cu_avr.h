@@ -90,6 +90,14 @@ uint8* cu_avr_get_ioinfo(void);
 
 
 /*
+** Returns whether the EEPROM changed since the last clear of this indicator.
+** Calling cu_avr_io_update() clears this indicator (as well as resetting by
+** vu_avr_reset()). Passing TRUE also clears it.
+*/
+boole cu_avr_eeprom_ischanged(boole clear);
+
+
+/*
 ** Returns AVR CPU state structure. It may be written, the Code ROM must be
 ** recompiled (by cu_avr_crom_update()) if anything in that area was updated
 ** or freshly written, and the IO space needs to be updated (by
