@@ -108,7 +108,9 @@ typedef struct{
  auint spirx;         /* SPI received data waiting to be clocked into the AVR */
  auint spitx;         /* SPI transmit data waiting to be clocked out of the AVR */
  auint wdseed;        /* Watchdog seed to provide a deterministic WD timeout */
- auint wdtc;          /* Watchdog remaining ticks until a timeout */
+ auint wdtc;          /* Watchdog remaining clock until a timeout */
+ auint eepec;         /* EEPROM Programming enabled remaining clocks */
+ auint eepwc;         /* EEPROM Write remaining clocks */
 }cu_state_cpu_t;
 
 

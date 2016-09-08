@@ -248,6 +248,7 @@ int main (int argc, char** argv)
 
 
  ecpu = cu_avr_get_state();
+ memset (&(ecpu->eepr[0]), (char)(0xFFU), sizeof(ecpu->eepr));
 
  if (!cu_ufile_load(game, &(ecpu->crom[0]), &ufhead)){
   if (!cu_hfile_load(game, &(ecpu->crom[0]))){

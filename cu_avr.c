@@ -104,6 +104,15 @@ auint           spi_tx_end;
 /* Watchdog timeout cycle goal. WD timeouts when cycle_counter equals this */
 auint           wd_end;
 
+/* EEPROM programming enabled flag */
+boole           eeprom_proge;
+
+/* EEPROM write progress flag */
+boole           eeprom_writing;
+
+/* EEPROM operation cycle goal. EEPROM operation takes place when cycle_counter equals this */
+auint           eeprom_op_end;
+
 
 
 /* Watchdog 16 millisecond timer base tick count */
@@ -111,6 +120,9 @@ auint           wd_end;
 
 /* Watchdog timing seed mask base, used to mask for the 16 ms timer */
 #define WD_SEED_MASK 2048U
+
+/* EEPROM programming time base, assume ~1.75ms */
+#define EEPROM_EWR_TIM 50000U
 
 
 
@@ -409,6 +421,47 @@ static void cu_avr_hwexec(void)
  }
 
  /* EEPROM */
+
+ if (eeprom_writing){
+
+  if (cycle_counter == eeprom_op_end){
+
+   eeprom_writing = FALSE;
+   t0 = cpu_state.iors[CU_IO_EECR] & 0x30U; /* EEPROM write mode */
+   t1 = ( ((auint)(cpu_state.iors[CU_IO_EEARH]) << 8) |
+          ((auint)(cpu_state.iors[CU_IO_EEARL])     ) ) & 0x7FFU;
+   if       (t0 == 0x00U){ /* Erase and Write */
+    cpu_state.eepr[t1]  = cpu_state.iors[CU_IO_EEDR];
+   }else if (t0 == 0x10U){ /* Erase only */
+    cpu_state.eepr[t1]  = 0xFFU;
+   }else if (t0 == 0x20U){ /* Write only */
+    cpu_state.eepr[t1] |= cpu_state.iors[CU_IO_EEDR];
+   }else{                  /* Reserved: Do nothing */
+   }
+   cpu_state.iors[CU_IO_EECR] &= ~0x02U; /* Clear EEPE (programming completed) */
+
+  }else{
+
+   t0 = eeprom_op_end - cycle_counter;
+   if (nextev > t0){ nextev = t0; }
+
+  }
+
+ }else if (eeprom_proge){
+
+  if (cycle_counter == eeprom_op_end){
+
+   eeprom_proge = FALSE;
+   cpu_state.iors[CU_IO_EECR] &= ~0x04U; /* Clear EEMPE (disable programming) */
+
+  }else{
+
+   t0 = eeprom_op_end - cycle_counter;
+   if (nextev > t0){ nextev = t0; }
+
+  }
+
+ }else{}
 
  /* Calculate next event's cycle */
 
@@ -717,7 +770,57 @@ static void  cu_avr_write_io(auint port, auint val)
 
   case CU_IO_EECR:    /* EEPROM control */
 
-   cval  = 0U;        /* Temp, to allow kernel to complete */
+   if ((pval & 0x04U) == 0U){
+    cval &= ~0x02U;   /* Without EEMPE, programming (EEPE) can not start */
+   }else{
+    eeprom_proge  = TRUE;
+    eeprom_op_end = cycle_counter + 4U; /* Open EEPE window (4 cycles) */
+    if ( (cycle_next_event - cycle_counter) >
+         (eeprom_op_end    - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
+     cycle_next_event = eeprom_op_end;  /* Set EEPROM HW processing target */
+    }
+   }
+
+   if ( ((pval & 0x02U) == 0U) &&
+        ((cval & 0x02U) != 0U) ){ /* Programming started */
+    eeprom_writing = TRUE;
+    t0 = cpu_state.iors[CU_IO_EECR] & 0x30U; /* EEPROM write mode */
+    eeprom_op_end  = EEPROM_EWR_TIM;
+    if (t0 == 0U){ eeprom_op_end *= 2U; }    /* Erase + Write */
+    eeprom_op_end += cycle_counter;
+    if ( (cycle_next_event - cycle_counter) >
+         (eeprom_op_end    - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
+     cycle_next_event = eeprom_op_end;  /* Set EEPROM HW processing target */
+    }
+    UPDATE_HARDWARE; /* 2 cycles write stall. */
+    UPDATE_HARDWARE; /* Note: IT checks are slightly off due to this, but this inaccuracy is tolerable. */
+   }
+
+   if (cval & 0x01U){ /* EEPROM read (EERE) strobe */
+    if (!eeprom_writing){ /* During writing it can't be done */
+     t0 = ( ((auint)(cpu_state.iors[CU_IO_EEARH]) << 8) |
+            ((auint)(cpu_state.iors[CU_IO_EEARL])     ) ) & 0x7FFU;
+     cpu_state.iors[CU_IO_EEDR] = cpu_state.eepr[t0];
+     UPDATE_HARDWARE;
+     UPDATE_HARDWARE;
+     UPDATE_HARDWARE; /* 4 cycles read stall. */
+     UPDATE_HARDWARE; /* Note: IT checks are slightly off due to this, but this inaccuracy is tolerable. */
+    }
+    cval &= ~0x01U;
+    /* Note: The EERE bit is a little hazy, it is not described whether it is
+    ** cleared after write or not, the SBI / CBI instructions might work
+    ** differently on this port than read + mask + write. Clearing it however
+    ** works for the documented usage (the bit is never read anyway). */
+   }
+   break;
+
+  case CU_IO_EEARH:   /* EEPROM address & data registers */
+  case CU_IO_EEARL:
+  case CU_IO_EEDR:
+
+   if (eeprom_writing){
+    cval = pval;      /* During EEPROM programming, these can't be modified */
+   }
    break;
 
   case CU_IO_WDTCSR:  /* Watchdog timer control */
@@ -1443,6 +1546,8 @@ void  cu_avr_reset(void)
  event_it_enter   = FALSE;
  spi_tx           = FALSE;
  wd_end           = cu_avr_getwdto() + cycle_counter;
+ eeprom_proge     = FALSE;
+ eeprom_writing   = FALSE;
 
  cu_avr_crom_update(0U, 65536U);
  cu_avr_io_update();
@@ -1575,6 +1680,17 @@ cu_state_cpu_t* cu_avr_get_state(void)
 
  cpu_state.wdtc = wd_end - cycle_counter; /* Convert remaining WD ticks */
 
+ if (eeprom_writing){ /* Convert EEPROM state */
+  cpu_state.eepwc = eeprom_op_end - cycle_counter;
+ }else{
+  cpu_state.eepwc = 0U;
+  if (eeprom_proge){
+   cpu_state.eepec = eeprom_op_end - cycle_counter;
+  }else{
+   cpu_state.eepec = 0U;
+  }
+ }
+
  return &cpu_state;
 }
 
@@ -1627,6 +1743,16 @@ void  cu_avr_io_update(void)
  }
 
  wd_end = cycle_counter + cpu_state.wdtc; /* Extract remaining WD ticks */
+
+ eeprom_proge   = FALSE;     /* Extract EEPROM state */
+ eeprom_writing = FALSE;
+ if       (cpu_state.eepwc != 0U){
+  eeprom_writing = TRUE;
+  eeprom_op_end  = cycle_counter + cpu_state.eepwc;
+ }else if (cpu_state.eepec != 0U){
+  eeprom_proge   = TRUE;
+  eeprom_op_end  = cycle_counter + cpu_state.eepec;
+ }else{}
 
  cycle_next_event = cycle_counter + 1U; /* Request HW processing */
  event_it         = TRUE;               /* Request interrupt processing */
