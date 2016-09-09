@@ -1490,14 +1490,14 @@ cy2_tail:
 cy1_tail:
    UPDATE_HARDWARE_IT;
 cy0_tail:
-   break;
+
+   /* Enter interrupt if flagged so */
+   if (event_it_enter){ cu_avr_interrupt(); }
+   return;
 
  }
 
- /* Enter interrupt if flagged so */
-
- if (event_it_enter){ cu_avr_interrupt(); }
-
+ /* Control should never reach here (no "break" in the switch) */
 }
 
 
