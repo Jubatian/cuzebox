@@ -104,13 +104,16 @@ typedef struct{
  uint8 iors[256];     /* IO Registers (including general purpose regs) */
  auint pc;            /* Program Counter */
  auint latch;         /* 16 bit I/O register high latch */
- auint spitc;         /* SPI remaining clocks until transfer completed (Zero: no transfer) */
- auint spirx;         /* SPI received data waiting to be clocked into the AVR */
- auint spitx;         /* SPI transmit data waiting to be clocked out of the AVR */
- auint wdseed;        /* Watchdog seed to provide a deterministic WD timeout */
- auint wdtc;          /* Watchdog remaining clock until a timeout */
- auint eepec;         /* EEPROM Programming enabled remaining clocks */
- auint eepwc;         /* EEPROM Write remaining clocks */
+ auint cycle;         /* Current cycle (32 bits wrapping, used for timing) */
+ boole spi_tran;      /* SPI transfer in progress */
+ auint spi_end;       /* SPI transfer end cycle */
+ auint spi_rx;        /* SPI received data waiting to be clocked into the AVR */
+ auint spi_tx;        /* SPI transmit data waiting to be clocked out of the AVR */
+ auint wd_seed;       /* Watchdog seed to provide a deterministic WD timeout */
+ auint wd_end;        /* Watchdog timeout end cycle */
+ boole eep_prge;      /* EEPROM Programming enabled, timeout active */
+ boole eep_wrte;      /* EEPROM Write enabled (higher priority than eep_prge), timeout active */
+ auint eep_end;       /* EEPROM activity end cycle */
 }cu_state_cpu_t;
 
 

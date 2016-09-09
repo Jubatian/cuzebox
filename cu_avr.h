@@ -52,8 +52,8 @@ auint cu_avr_run(void);
 
 /*
 ** Returns emulator's cycle counter. It may be used to time emulation when it
-** doesn't generate proper video signal. The cycle counter spans the full
-** auint range and wraps around.
+** doesn't generate proper video signal. This is the cycle member of the CPU
+** state (32 bits wrapping).
 */
 auint cu_avr_getcycle(void);
 

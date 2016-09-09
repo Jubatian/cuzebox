@@ -224,7 +224,7 @@ static void main_loop(void)
   main_t5_frc    = 0U;
 
   ccur       = cu_avr_getcycle();
-  cdif       = ccur - main_t5_cc;
+  cdif       = (ccur - main_t5_cc) & 0xFFFFFFFFU;
   main_t5_cc = ccur;
 
   snprintf(
@@ -272,7 +272,7 @@ int main (int argc, char** argv)
   }
  }
 
- ecpu->wdseed = rand(); /* Seed the WD timeout used for PRNG seed in Uzebox games */
+ ecpu->wd_seed = rand(); /* Seed the WD timeout used for PRNG seed in Uzebox games */
 
  fprintf(stdout, "Starting emulator\n");
 

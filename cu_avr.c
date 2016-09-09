@@ -72,14 +72,11 @@ auint           audio_samples[4U];
 auint           audio_rp;
 auint           audio_wp;
 
-/* Cycle counter by which various hardware events are timed */
-auint           cycle_counter;
-
-/* Next hardware event's cycle. It can be safely set to (cycle_counter + 1U)
-** to force full processing next time. */
+/* Next hardware event's cycle. It can be safely set to
+** WRAP32(cpu_state.cycle + 1U) to force full processing next time. */
 auint           cycle_next_event;
 
-/* Timer1 TCNT1 adjustment value: cycle_counter - timer1_base (with wrap)
+/* Timer1 TCNT1 adjustment value: WRAP32(cpu_state.cycle - timer1_base)
 ** gives the correct TCNT1 any time. */
 auint           timer1_base;
 
@@ -95,24 +92,6 @@ boole           event_it_enter;
 /* Vector to call when entering interrupt */
 auint           event_it_vect;
 
-/* SPI transfer in progress flag. If set, SPI is shifting in / out */
-boole           spi_tx;
-
-/* SPI transfer cycle goal. Transfer completes when cycle_counter equals this */
-auint           spi_tx_end;
-
-/* Watchdog timeout cycle goal. WD timeouts when cycle_counter equals this */
-auint           wd_end;
-
-/* EEPROM programming enabled flag */
-boole           eeprom_proge;
-
-/* EEPROM write progress flag */
-boole           eeprom_writing;
-
-/* EEPROM operation cycle goal. EEPROM operation takes place when cycle_counter equals this */
-auint           eeprom_op_end;
-
 /* EEPROM change indicator */
 boole           eeprom_changed;
 
@@ -127,6 +106,9 @@ boole           eeprom_changed;
 /* EEPROM programming time base, assume ~1.75ms */
 #define EEPROM_EWR_TIM 50000U
 
+
+/* Macro for enforcing 32 bit wrapping math (does nothing it auint is 32 bits) */
+#define WRAP32(x) ((x) & 0xFFFFFFFFU)
 
 
 /* Flags in CU_IO_SREG */
@@ -282,8 +264,8 @@ boole           eeprom_changed;
 /* Macro for updating hardware from within instructions */
 #define UPDATE_HARDWARE \
  do{ \
-  cycle_counter ++; \
-  if (cycle_next_event == cycle_counter){ cu_avr_hwexec(); } \
+  cpu_state.cycle = WRAP32(cpu_state.cycle + 1U); \
+  if (cycle_next_event == cpu_state.cycle){ cu_avr_hwexec(); } \
   video_row.pixels[video_cycle] = cpu_state.iors[CU_IO_PORTC]; \
   video_cycle ++; \
  }while(0)
@@ -320,7 +302,7 @@ static auint cu_avr_getwdto(void)
 {
  auint presc = cpu_state.iors[CU_IO_WDTCSR] & 7U;
  return ( ((auint)(WD_16MS_BASE) << presc) +
-          (cpu_state.wdseed & (((auint)(WD_SEED_MASK) << presc) - 1U)) );
+          (cpu_state.wd_seed & (((auint)(WD_SEED_MASK) << presc) - 1U)) );
 }
 
 
@@ -341,7 +323,7 @@ static void cu_avr_hwexec(void)
 
  if ((cpu_state.iors[CU_IO_TCCR1B] & 0x07U) != 0U){ /* Timer 1 started */
 
-  t0 = (cycle_counter - timer1_base) & 0xFFFFU;     /* Current TCNT1 value */
+  t0 = (cpu_state.cycle - timer1_base) & 0xFFFFU;   /* Current TCNT1 value */
   t1 = ( ( ((auint)(cpu_state.iors[CU_IO_OCR1AL])     ) |
            ((auint)(cpu_state.iors[CU_IO_OCR1AH]) << 8) ) + 1U) & 0xFFFFU;
   t2 = ( ( ((auint)(cpu_state.iors[CU_IO_OCR1BL])     ) |
@@ -362,7 +344,7 @@ static void cu_avr_hwexec(void)
    if (t0 == t1){
     cpu_state.iors[CU_IO_TIFR1] |= 0x02U; /* Comparator A interrupt */
     event_it = TRUE;
-    timer1_base = cycle_counter;          /* Reset timer to zero */
+    timer1_base = cpu_state.cycle;        /* Reset timer to zero */
     t0 = 0U;                              /* Also reset for event calculation */
    }
 
@@ -376,7 +358,7 @@ static void cu_avr_hwexec(void)
    if (t0 == 0x0000U){
     cpu_state.iors[CU_IO_TIFR1] |= 0x01U; /* Overflow interrupt */
     event_it = TRUE;
-    timer1_base = cycle_counter;          /* Reset timer to zero */
+    timer1_base = cpu_state.cycle;        /* Reset timer to zero */
    }
 
    if (nextev > (0x10000U - t0)){ nextev = 0x10000U - t0; }
@@ -391,32 +373,32 @@ static void cu_avr_hwexec(void)
 
   /* Assume interrupt mode (this is used for random number generator seeding) */
 
-  if (cycle_counter == wd_end){
+  if (cpu_state.cycle == cpu_state.wd_end){
    cpu_state.iors[CU_IO_WDTCSR] |= 0x80U; /* Watchdog interrupt */
    event_it = TRUE;
-   wd_end  = cu_avr_getwdto() + cycle_counter;
+   cpu_state.wd_end  = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
   }
 
-  t0 = wd_end - cycle_counter;
+  t0 = WRAP32(cpu_state.wd_end - cpu_state.cycle);
   if (nextev > t0){ nextev = t0; }
 
  }
 
  /* SPI peripherals (SD card, SPI RAM) */
 
- if (spi_tx){
+ if (cpu_state.spi_tran){
 
-  if (cycle_counter == spi_tx_end){
+  if (cpu_state.cycle == cpu_state.spi_end){
 
-   spi_tx = FALSE;
+   cpu_state.spi_tran = FALSE;
    cpu_state.iors[CU_IO_SPSR] |= 0x80U; /* SPI interrupt */
    event_it = TRUE;
-   cpu_state.iors[CU_IO_SPDR] = cpu_state.spirx;
-   cu_spi_send(cpu_state.spitx, cycle_counter);
+   cpu_state.iors[CU_IO_SPDR] = cpu_state.spi_rx;
+   cu_spi_send(cpu_state.spi_tx, cpu_state.cycle);
 
   }else{
 
-   t0 = spi_tx_end - cycle_counter;
+   t0 = WRAP32(cpu_state.spi_end - cpu_state.cycle);
    if (nextev > t0){ nextev = t0; }
 
   }
@@ -425,11 +407,11 @@ static void cu_avr_hwexec(void)
 
  /* EEPROM */
 
- if (eeprom_writing){
+ if (cpu_state.eep_wrte){
 
-  if (cycle_counter == eeprom_op_end){
+  if (cpu_state.cycle == cpu_state.eep_end){
 
-   eeprom_writing = FALSE;
+   cpu_state.eep_wrte = FALSE;
    t0 = cpu_state.iors[CU_IO_EECR] & 0x30U; /* EEPROM write mode */
    t1 = ( ((auint)(cpu_state.iors[CU_IO_EEARH]) << 8) |
           ((auint)(cpu_state.iors[CU_IO_EEARL])     ) ) & 0x7FFU;
@@ -447,21 +429,21 @@ static void cu_avr_hwexec(void)
 
   }else{
 
-   t0 = eeprom_op_end - cycle_counter;
+   t0 = WRAP32(cpu_state.eep_end - cpu_state.cycle);
    if (nextev > t0){ nextev = t0; }
 
   }
 
- }else if (eeprom_proge){
+ }else if (cpu_state.eep_prge){
 
-  if (cycle_counter == eeprom_op_end){
+  if (cpu_state.cycle == cpu_state.eep_end){
 
-   eeprom_proge = FALSE;
+   cpu_state.eep_prge = FALSE;
    cpu_state.iors[CU_IO_EECR] &= ~0x04U; /* Clear EEMPE (disable programming) */
 
   }else{
 
-   t0 = eeprom_op_end - cycle_counter;
+   t0 = WRAP32(cpu_state.eep_end - cpu_state.cycle);
    if (nextev > t0){ nextev = t0; }
 
   }
@@ -470,7 +452,7 @@ static void cu_avr_hwexec(void)
 
  /* Calculate next event's cycle */
 
- cycle_next_event = cycle_counter + nextev;
+ cycle_next_event = WRAP32(cpu_state.cycle + nextev);
 }
 
 
@@ -582,7 +564,7 @@ static void  cu_avr_write_io(auint port, auint val)
 
    cval &= cpu_state.iors[CU_IO_DDRA];
    cpu_state.iors[CU_IO_PINA] = cu_ctr_process(pval, cval);
-   cu_spi_cs_set(CU_SPI_CS_RAM, (cval & 0x10U) == 0U, cycle_counter);
+   cu_spi_cs_set(CU_SPI_CS_RAM, (cval & 0x10U) == 0U, cpu_state.cycle);
    break;
 
   case CU_IO_PORTB:   /* Sync output */
@@ -591,8 +573,8 @@ static void  cu_avr_write_io(auint port, auint val)
 
    if (((pval ^ cval) & 1U) != 0U){   /* Sync edge */
 
-    t0 = cycle_counter - video_pedge; /* Cycles elapsed since previous edge */
-    video_pedge = cycle_counter;
+    t0 = WRAP32(cpu_state.cycle - video_pedge); /* Cycles elapsed since previous edge */
+    video_pedge = cpu_state.cycle;
 
     if ((cval & 1U) == 1U){      /* Rising edge */
 
@@ -607,8 +589,8 @@ static void  cu_avr_write_io(auint port, auint val)
       video_pulsectr      = 0U;
       video_frame.rowcdif = 0U - 252U;
      }
-     t1 = cycle_counter - video_prise;
-     video_prise = cycle_counter;
+     t1 = WRAP32(cpu_state.cycle - video_prise);
+     video_prise = cpu_state.cycle;
      if       ( (t1 >=  944U) &&
                 (t1 <= 1012U) && /* Sync to first normal pulse (978 cycles apart from last rise) */
                 (video_pulsectr >= 252U) ){
@@ -708,7 +690,7 @@ static void  cu_avr_write_io(auint port, auint val)
   case CU_IO_PORTD:   /* SD card Chip Select */
 
    cval &= cpu_state.iors[CU_IO_DDRD];
-   cu_spi_cs_set(CU_SPI_CS_SD, (cval & 0x40U) == 0U, cycle_counter);
+   cu_spi_cs_set(CU_SPI_CS_SD, (cval & 0x40U) == 0U, cpu_state.cycle);
    break;
 
   case CU_IO_OCR2A:   /* PWM audio output */
@@ -727,8 +709,8 @@ static void  cu_avr_write_io(auint port, auint val)
   case CU_IO_TCNT1L:  /* Timer1 counter, low */
 
    t0    = (cpu_state.latch << 8) | cval;
-   timer1_base = cycle_counter - t0;
-   cycle_next_event = cycle_counter + 1U; /* Request HW processing */
+   timer1_base = WRAP32(cpu_state.cycle - t0);
+   cycle_next_event = WRAP32(cpu_state.cycle + 1U); /* Request HW processing */
    break;
 
   case CU_IO_TIFR1:   /* Timer1 interrupt flags */
@@ -742,25 +724,25 @@ static void  cu_avr_write_io(auint port, auint val)
   case CU_IO_OCR1BH:  /* Timer1 comparator B, high */
   case CU_IO_OCR1BL:  /* Timer1 comparator B, low */
 
-   cycle_next_event = cycle_counter + 1U; /* Request HW processing */
+   cycle_next_event = WRAP32(cpu_state.cycle + 1U); /* Request HW processing */
    break;
 
   case CU_IO_SPDR:    /* SPI data */
 
    if ((cpu_state.iors[CU_IO_SPCR] & 0x40U) != 0U){ /* SPI enabled */
-    if (spi_tx){      /* Already sending */
-     cpu_state.iors[CU_IO_SPSR] |= 0x40U; /* Signal write collision */
+    if (cpu_state.spi_tran){                /* Already sending */
+     cpu_state.iors[CU_IO_SPSR] |= 0x40U;   /* Signal write collision */
     }else{
-     spi_tx = TRUE;
-     spi_tx_end = cycle_counter +
-                  (16U << ( ((cpu_state.iors[CU_IO_SPCR] & 0x3U) << 1) |
-                            ((cpu_state.iors[CU_IO_SPSR] & 0x1U) ^ 1U) ));
-     if ( (cycle_next_event - cycle_counter) >
-          (spi_tx_end       - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
-      cycle_next_event = spi_tx_end; /* Set SPI HW processing target */
+     cpu_state.spi_tran = TRUE;
+     cpu_state.spi_end  = WRAP32( cpu_state.cycle +
+          (16U << ( ((cpu_state.iors[CU_IO_SPCR] & 0x3U) << 1) |
+                    ((cpu_state.iors[CU_IO_SPSR] & 0x1U) ^ 1U) )) );
+     if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
+          (WRAP32(cpu_state.spi_end - cpu_state.cycle)) ){
+      cycle_next_event = cpu_state.spi_end; /* Set SPI HW processing target */
      }
-     cpu_state.spirx = cu_spi_recv(cycle_counter);
-     cpu_state.spitx = cval;
+     cpu_state.spi_rx = cu_spi_recv(cpu_state.cycle);
+     cpu_state.spi_tx = cval;
     }
    }
    break;
@@ -778,24 +760,24 @@ static void  cu_avr_write_io(auint port, auint val)
    if ((pval & 0x04U) == 0U){
     cval &= ~0x02U;   /* Without EEMPE, programming (EEPE) can not start */
    }else{
-    eeprom_proge  = TRUE;
-    eeprom_op_end = cycle_counter + 4U; /* Open EEPE window (4 cycles) */
-    if ( (cycle_next_event - cycle_counter) >
-         (eeprom_op_end    - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
-     cycle_next_event = eeprom_op_end;  /* Set EEPROM HW processing target */
+    cpu_state.eep_prge = TRUE;
+    cpu_state.eep_end  = WRAP32(cpu_state.cycle + 4U); /* Open EEPE window (4 cycles) */
+    if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
+         (WRAP32(cpu_state.eep_end - cpu_state.cycle)) ){
+     cycle_next_event = cpu_state.eep_end; /* Set EEPROM HW processing target */
     }
    }
 
    if ( ((pval & 0x02U) == 0U) &&
         ((cval & 0x02U) != 0U) ){ /* Programming started */
-    eeprom_writing = TRUE;
-    t0 = cpu_state.iors[CU_IO_EECR] & 0x30U; /* EEPROM write mode */
-    eeprom_op_end  = EEPROM_EWR_TIM;
-    if (t0 == 0U){ eeprom_op_end *= 2U; }    /* Erase + Write */
-    eeprom_op_end += cycle_counter;
-    if ( (cycle_next_event - cycle_counter) >
-         (eeprom_op_end    - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
-     cycle_next_event = eeprom_op_end;  /* Set EEPROM HW processing target */
+    cpu_state.eep_wrte = TRUE;
+    t0 = cpu_state.iors[CU_IO_EECR] & 0x30U;  /* EEPROM write mode */
+    cpu_state.eep_end  = EEPROM_EWR_TIM;
+    if (t0 == 0U){ cpu_state.eep_end *= 2U; } /* Erase + Write */
+    cpu_state.eep_end  = WRAP32(cpu_state.eep_end + cpu_state.cycle);
+    if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
+         (WRAP32(cpu_state.eep_end - cpu_state.cycle)) ){
+     cycle_next_event = cpu_state.eep_end; /* Set EEPROM HW processing target */
     }
     UPDATE_HARDWARE;  /* 2 cycles write stall. */
     UPDATE_HARDWARE;  /* Note: IT checks are slightly off due to this, but this inaccuracy is tolerable. */
@@ -803,7 +785,7 @@ static void  cu_avr_write_io(auint port, auint val)
    }
 
    if (cval & 0x01U){ /* EEPROM read (EERE) strobe */
-    if (!eeprom_writing){ /* During writing it can't be done */
+    if (!cpu_state.eep_wrte){ /* During writing it can't be done */
      t0 = ( ((auint)(cpu_state.iors[CU_IO_EEARH]) << 8) |
             ((auint)(cpu_state.iors[CU_IO_EEARL])     ) ) & 0x7FFU;
      cpu_state.iors[CU_IO_EEDR] = cpu_state.eepr[t0];
@@ -824,7 +806,7 @@ static void  cu_avr_write_io(auint port, auint val)
   case CU_IO_EEARL:
   case CU_IO_EEDR:
 
-   if (eeprom_writing){
+   if (cpu_state.eep_wrte){
     cval = pval;      /* During EEPROM programming, these can't be modified */
    }
    break;
@@ -833,10 +815,10 @@ static void  cu_avr_write_io(auint port, auint val)
 
    if ( ((pval & 0x48U) == 0U) &&
         ((cval & 0x48U) != 0U) ){ /* Watchdog becomes enabled, so start it */
-    wd_end = cu_avr_getwdto() + cycle_counter;
-    if ( (cycle_next_event - cycle_counter) >
-         (wd_end           - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
-     cycle_next_event = wd_end; /* Set Watchdog timeout HW processing target */
+    cpu_state.wd_end = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
+    if ( (WRAP32(cycle_next_event - cpu_state.cycle)) >
+         (WRAP32(cpu_state.wd_end - cpu_state.cycle)) ){
+     cycle_next_event = cpu_state.wd_end; /* Set Watchdog timeout HW processing target */
     }
    }
    break;
@@ -871,7 +853,7 @@ static auint cu_avr_read_io(auint port)
  switch (port){
 
   case CU_IO_TCNT1L:
-   t0  = cycle_counter - timer1_base; /* Current TCNT1 value */
+   t0  = WRAP32(cpu_state.cycle - timer1_base); /* Current TCNT1 value */
    cpu_state.latch = (t0 >> 8) & 0xFFU;
    ret = t0 & 0xFFU;
    break;
@@ -1319,10 +1301,10 @@ ret_tail:
    goto cy1_tail;
 
   case 0x36U: /* WDR */
-   wd_end = cu_avr_getwdto() + cycle_counter;
-   if ( (cycle_next_event - cycle_counter) >
-        (wd_end           - cycle_counter) ){ /* Note: Wrapping unsigned arithmetic! */
-    cycle_next_event = wd_end; /* Set Watchdog timeout HW processing target */
+   cpu_state.wd_end = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
+   if ( (WRAP32(cycle_next_event - cpu_state.cycle)) >
+        (WRAP32(cpu_state.wd_end - cpu_state.cycle)) ){
+    cycle_next_event = cpu_state.wd_end; /* Set Watchdog timeout HW processing target */
    }
    goto cy1_tail;
 
@@ -1538,28 +1520,28 @@ void  cu_avr_reset(void)
 
  cpu_state.pc = VECT_RESET;   /* Once boot loaders are added, this have to be pointed there */
 
- cycle_counter    = 0U;
- video_pulsectr   = 0U;
- video_pedge      = cycle_counter;
- video_prise      = cycle_counter;
- video_rowflag    = FALSE;
- video_cycle      = 0U;
- audio_rp         = 0U;
- audio_wp         = 0U;
- cycle_next_event = cycle_counter + 1U;
- timer1_base      = cycle_counter;
- event_it         = TRUE;
- event_it_enter   = FALSE;
- spi_tx           = FALSE;
- wd_end           = cu_avr_getwdto() + cycle_counter;
- eeprom_proge     = FALSE;
- eeprom_writing   = FALSE;
+ cpu_state.cycle    = 0U;
+ video_pulsectr     = 0U;
+ video_pedge        = cpu_state.cycle;
+ video_prise        = cpu_state.cycle;
+ video_rowflag      = FALSE;
+ video_cycle        = 0U;
+ audio_rp           = 0U;
+ audio_wp           = 0U;
+ cycle_next_event   = WRAP32(cpu_state.cycle + 1U);
+ timer1_base        = cpu_state.cycle;
+ event_it           = TRUE;
+ event_it_enter     = FALSE;
+ cpu_state.spi_tran = FALSE;
+ cpu_state.wd_end   = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
+ cpu_state.eep_prge = FALSE;
+ cpu_state.eep_wrte = FALSE;
 
  cu_avr_crom_update(0U, 65536U);
  cu_avr_io_update();
 
  cu_ctr_reset();
- cu_spi_reset(cycle_counter);
+ cu_spi_reset(cpu_state.cycle);
 }
 
 
@@ -1613,12 +1595,12 @@ auint cu_avr_run(void)
 
 /*
 ** Returns emulator's cycle counter. It may be used to time emulation when it
-** doesn't generate proper video signal. The cycle counter spans the full
-** auint range and wraps around.
+** doesn't generate proper video signal. This is the cycle member of the CPU
+** state (32 bits wrapping).
 */
 auint cu_avr_getcycle(void)
 {
- return cycle_counter;
+ return cpu_state.cycle;
 }
 
 
@@ -1686,29 +1668,10 @@ boole cu_avr_eeprom_ischanged(boole clear)
 */
 cu_state_cpu_t* cu_avr_get_state(void)
 {
- auint t0 = (cycle_counter - timer1_base) & 0xFFFFU; /* Current TCNT1 value */
+ auint t0 = WRAP32(cpu_state.cycle - timer1_base); /* Current TCNT1 value */
 
  cpu_state.iors[CU_IO_TCNT1H] = (t0 >> 8) & 0xFFU;
  cpu_state.iors[CU_IO_TCNT1L] = (t0     ) & 0xFFU;
-
- if (spi_tx){ /* Convert SPI transfer state */
-  cpu_state.spitc = spi_tx_end - cycle_counter;
- }else{
-  cpu_state.spitc = 0U;
- }
-
- cpu_state.wdtc = wd_end - cycle_counter; /* Convert remaining WD ticks */
-
- if (eeprom_writing){ /* Convert EEPROM state */
-  cpu_state.eepwc = eeprom_op_end - cycle_counter;
- }else{
-  cpu_state.eepwc = 0U;
-  if (eeprom_proge){
-   cpu_state.eepec = eeprom_op_end - cycle_counter;
-  }else{
-   cpu_state.eepec = 0U;
-  }
- }
 
  return &cpu_state;
 }
@@ -1754,27 +1717,8 @@ void  cu_avr_io_update(void)
 
  t0    = (cpu_state.iors[CU_IO_TCNT1H] << 8) |
          (cpu_state.iors[CU_IO_TCNT1L]     );
- timer1_base = cycle_counter - t0;
+ timer1_base = WRAP32(cpu_state.cycle - t0);
 
- if (cpu_state.spitc != 0U){ /* Extract SPI transfer state */
-  spi_tx = TRUE;
-  spi_tx_end = cycle_counter + cpu_state.spitc;
- }else{
-  spi_tx = FALSE;
- }
-
- wd_end = cycle_counter + cpu_state.wdtc; /* Extract remaining WD ticks */
-
- eeprom_proge   = FALSE;     /* Extract EEPROM state */
- eeprom_writing = FALSE;
- if       (cpu_state.eepwc != 0U){
-  eeprom_writing = TRUE;
-  eeprom_op_end  = cycle_counter + cpu_state.eepwc;
- }else if (cpu_state.eepec != 0U){
-  eeprom_proge   = TRUE;
-  eeprom_op_end  = cycle_counter + cpu_state.eepec;
- }else{}
-
- cycle_next_event = cycle_counter + 1U; /* Request HW processing */
- event_it         = TRUE;               /* Request interrupt processing */
+ cycle_next_event = WRAP32(cpu_state.cycle + 1U); /* Request HW processing */
+ event_it         = TRUE; /* Request interrupt processing */
 }
