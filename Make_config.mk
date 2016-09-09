@@ -47,9 +47,9 @@ TSYS=linux
 # compile from (Debian) Linux to 32 bit Windows, the followings might work
 # assuming that a development library was downloaded from libsdl.org:
 #
-# CC_INC=SDL2-2.0.4/i686-w64-mingw32/include
-# CC_LIB=SDL2-2.0.4/i686-w64-mingw32/lib
-# CC=i686-w64-mingw32-gcc
+#CC_INC=SDL2-2.0.4/i686-w64-mingw32/include
+#CC_LIB=SDL2-2.0.4/i686-w64-mingw32/lib
+#CCOMP=i686-w64-mingw32-gcc
 #
 CC_BIN=
 CC_INC=

@@ -39,13 +39,13 @@ CFLAGS=
 # The compiler
 #
 ifeq ($(TSYS),linux)
-CC?=gcc
+CCOMP?=gcc
 endif
 ifeq ($(TSYS),windows_mingw)
-CC?=gcc
+CCOMP?=gcc
 endif
 ifeq ($(TSYS),emscripten)
-CC?=emcc
+CCOMP?=emcc
 endif
 #
 #
@@ -102,6 +102,7 @@ endif
 LINKB?=
 LINK= $(LINKB)
 OUT?=cuzebox
+CC=$(CCOMP)
 
 OBD=_obj_
 
