@@ -40,11 +40,6 @@
 TSYS=linux
 #
 #
-# If you wish to change your output executable's name, do it here.
-#
-OUT=cuzebox
-#
-#
 # A few paths in case they would be necessary. Leave them alone unless
 # it is necessary to modify.
 #

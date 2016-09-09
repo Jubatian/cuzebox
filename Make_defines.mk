@@ -56,6 +56,7 @@ endif
 # Windows - MinGW specific
 #
 ifeq ($(TSYS),windows_mingw)
+OUT=cuzebox.exe
 CFLAGS+= -DTARGET_WINDOWS_MINGW
 LINKB=-lmingw32 -lSDL2 -mwindows
 endif
@@ -64,6 +65,7 @@ endif
 # Emscripten - specific
 #
 ifeq ($(TSYS),emscripten)
+OUT=cuzebox.html
 EFLAGS= -s USE_SDL=2 -s NO_EXIT_RUNTIME=1 -s NO_DYNAMIC_EXECUTION=1
 CFLAGS+= -DTARGET_EMSCRIPTEN $(EFLAGS)
 LINKB=$(EFLAGS) --preload-file gamefile.uze
@@ -95,6 +97,7 @@ endif
 
 LINKB?=
 LINK= $(LINKB)
+OUT?=cuzebox
 
 OBD=_obj_
 
