@@ -57,7 +57,7 @@ static auint main_ptick;
 /* 1/3 counter to get the 16.6667ms average frame time */
 static auint main_tfrac = 0U;
 
-/* Frame counter for frame dropping */
+/* Frame counter for frame dropping and limiting */
 static auint main_frc = 0U;
 
 /* 500 millisecond counter to generate FPS info */
@@ -166,7 +166,7 @@ static void main_loop(void)
    if ((main_frc & 1U) != 0U){ fdrop = TRUE; } /* Drop a frame */
   }
  }else{                       /* Possibly too fast */
-  if (drift > 50U){           /* Waste away time by dropping main loops */
+  if (drift > 25U){           /* Waste away time by dropping main loops */
    SDL_Delay(5);
    return;
   }
@@ -180,9 +180,9 @@ static void main_loop(void)
  if (main_tfrac >= 2U){ main_tfrac = 0U; }
  else{                  main_tfrac ++;   }
 
- /* Tolerate some divergence from perfect 60Hz (2%) */
+ /* Tolerate some divergence from perfect 60Hz (1.5%) */
 
- if (main_tfrac == 0U){
+ if ((main_frc & 0x3U) == 0U){
   if       (main_tdrift > 0x80000000U){
    main_tdrift ++;
   }else if (main_tdrift != 0U){

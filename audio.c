@@ -36,7 +36,7 @@
 #define AUDIO_INC_P    (((auint)(15720U) * 0x10000U) / 48000U)
 
 /* Ring buffer size, must be a power of 2. */
-#define AUDIO_BUF_SIZE 2048U
+#define AUDIO_BUF_SIZE 4096U
 
 /* Ring buffer of samples */
 static uint8 audio_buf[AUDIO_BUF_SIZE];
@@ -52,8 +52,11 @@ static auint audio_inc;
 /* Current pointer fraction */
 static auint audio_frac;
 
-/* Frame consumption pointer (for timing rescalings) */
-static auint audio_fcp;
+/* Previous remaining samples counts for averaging */
+static auint audio_pbrem[31];
+
+/* Previous remaining samples average count for differential correction */
+static auint audio_pbrav;
 
 
 
@@ -64,30 +67,39 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 {
  auint i;
  auint brem = (audio_buf_w - audio_buf_r) & (AUDIO_BUF_SIZE - 1U);
- auint prrp = audio_buf_r;
+ auint brav = brem;
+
+ for (i = 0U; i < 31U; i++){ brav += audio_pbrem[i]; }
+ brav = (brav + 15U) >> 5;
 
  /* Frequency scaling */
 
- if (audio_fcp >= (262U * 8U)){
+ /* Propotional */
 
-  if       (brem < (262U * 3U)){
-   if (audio_inc > (((AUDIO_INC_P) *  95U) / 100U)){
-    audio_inc -= ((AUDIO_INC_P * ((262U * 3U) - brem)) + 0xFFFFFU) / 0x100000U;
+ if (brav < (262U * 5U)){
+  if (audio_inc > (((AUDIO_INC_P) *  95U) / 100U)){
+   if (brav <= audio_pbrav){ /* Only push it until tendency turns around */
+    i = ((262U * 5U) - brav);
+    audio_inc -= ((AUDIO_INC_P * i) + 0x7FFFFU) / 0x80000U;
    }
-  }else if (brem > (262U * 5U)){
-   if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
-    audio_inc += ((AUDIO_INC_P * (brem - (262U * 5U))) + 0xFFFFFU) / 0x100000U;
-   }
-  }else{
-   if       (audio_inc > AUDIO_INC_P){
-    audio_inc -= (((audio_inc - AUDIO_INC_P) + 0x1FFU) / 0x200U);
-   }else if (audio_inc < AUDIO_INC_P){
-    audio_inc += (((AUDIO_INC_P - audio_inc) + 0x1FFU) / 0x200U);
-   }else{}
   }
+ }else{
+  if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
+   if (brav >= audio_pbrav){ /* Only push it until tendency turns around */
+    i = (brav - (262U * 5U));
+    audio_inc += ((AUDIO_INC_P * i) + 0x7FFFFU) / 0x80000U;
+   }
+  }
+ }
 
-  audio_fcp -= (262U * 8U);
+ /* Differential */
 
+ if (brav < audio_pbrav){
+  i = audio_pbrav - brav;
+  audio_inc -= ((AUDIO_INC_P * i) + 0x7FFFU) / 0x8000U;
+ }else{
+  i = brav - audio_pbrav;
+  audio_inc += ((AUDIO_INC_P * i) + 0x7FFFU) / 0x8000U;
  }
 
  /* Sample output */
@@ -105,7 +117,9 @@ void audio_callback(void* dummy, Uint8* stream, int len)
   }
  }
 
- audio_fcp += (audio_buf_r - prrp) & (AUDIO_BUF_SIZE - 1U);
+ for (i = 30U; i != 0U; i--){ audio_pbrem[i] = audio_pbrem[i - 1U]; }
+ audio_pbrem[0] = brem;
+ audio_pbrav = brav;
 }
 
 
@@ -118,12 +132,14 @@ boole audio_init(void)
 {
  SDL_AudioSpec desired;
  SDL_AudioSpec dummy;
+ auint         i;
 
  audio_buf_r = 0U;
- audio_buf_w = 262U * 3U;
+ audio_buf_w = 262U * 4U;
  audio_inc   = AUDIO_INC_P;
  audio_frac  = 0U;
- audio_fcp   = 0U;
+ audio_pbrav = audio_buf_w;
+ for (i = 0U; i < 31U; i++){ audio_pbrem[i] = audio_buf_w; }
 
  memset(&(audio_buf[0]), 0x7FU, sizeof(audio_buf));
  memset(&desired, 0, sizeof(desired));
@@ -132,7 +148,7 @@ boole audio_init(void)
  desired.format   = AUDIO_U8;
  desired.callback = audio_callback;
  desired.channels = 1U;
- desired.samples  = 512U;
+ desired.samples  = 2048U;
 
  audio_dev = SDL_OpenAudioDevice(NULL, 0, &desired, &dummy, 0);
  if (audio_dev == 0U){
