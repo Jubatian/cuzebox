@@ -38,10 +38,14 @@ CFLAGS=
 #
 # The compiler
 #
+ifeq ($(TSYS),linux)
+CC?=gcc
+endif
+ifeq ($(TSYS),windows_mingw)
+CC?=gcc
+endif
 ifeq ($(TSYS),emscripten)
-CC=emcc
-else
-CC=gcc
+CC?=emcc
 endif
 #
 #
@@ -49,7 +53,7 @@ endif
 #
 ifeq ($(TSYS),linux)
 CFLAGS+= -DTARGET_LINUX
-LINKB=-lSDL2
+LINKB= -lSDL2
 endif
 #
 #
@@ -57,8 +61,8 @@ endif
 #
 ifeq ($(TSYS),windows_mingw)
 OUT=cuzebox.exe
-CFLAGS+= -DTARGET_WINDOWS_MINGW
-LINKB=-lmingw32 -lSDL2 -mwindows
+CFLAGS+= -DTARGET_WINDOWS_MINGW -Dmain=SDL_main
+LINKB= -lmingw32 -lSDL2main -lSDL2 -mwindows
 endif
 #
 #
@@ -87,8 +91,8 @@ ifeq ($(TSYS),emscripten)
 CFSPD?=-O3 --llvm-lto 3 -s ASSERTIONS=0 -s AGGRESSIVE_VARIABLE_ELIMINATION=1
 CFSIZ?=-Os --llvm-lto 3 -s ASSERTIONS=0
 else
-CFSPD?=-O3 -s -flto -fwhole-program
-CFSIZ?=-Os -s -flto -fwhole-program
+CFSPD?=-O3 -s -flto
+CFSIZ?=-Os -s -flto
 endif
 #
 #

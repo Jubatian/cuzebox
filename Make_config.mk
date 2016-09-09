@@ -43,6 +43,14 @@ TSYS=linux
 # A few paths in case they would be necessary. Leave them alone unless
 # it is necessary to modify.
 #
+# For a Windows build, you might need locating SDL2 here. When doing a cross
+# compile from (Debian) Linux to 32 bit Windows, the followings might work
+# assuming that a development library was downloaded from libsdl.org:
+#
+# CC_INC=SDL2-2.0.4/i686-w64-mingw32/include
+# CC_LIB=SDL2-2.0.4/i686-w64-mingw32/lib
+# CC=i686-w64-mingw32-gcc
+#
 CC_BIN=
 CC_INC=
 CC_LIB=

@@ -11,3 +11,5 @@
 /gamefile.uze
 # If the program created an eeprom dump, ignore that too
 /eeprom.bin
+# If for a Windows build an SDL2 development library is supplied locally, skip that
+/SDL2*
