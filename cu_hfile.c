@@ -27,7 +27,7 @@
 
 
 
-#include "cu_ufile.h"
+#include "cu_hfile.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -168,8 +168,8 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
       fprintf(stderr, "%s%sInvalid Ext. linear address on line %u in %s.\n", cu_id, cu_err, lpos, fname);
       goto ex_file;
      }
-     cpos = ((auint)(dec[4]) << 8) |
-            ((auint)(dec[5])     );
+     cpos = ((auint)(dec[4]) << 24) |
+            ((auint)(dec[5]) << 16);
      break;
 
     default:    /* Invalid for AVR programming */

@@ -37,7 +37,7 @@
 #  windows_mingw
 #  emscripten
 #
-TSYS=emscripten
+TSYS=linux
 #
 #
 # A few paths in case they would be necessary. Leave them alone unless
