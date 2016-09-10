@@ -306,6 +306,8 @@ void guicore_update(boole drop)
 */
 void guicore_setcaption(const char* title)
 {
+#ifndef __EMSCRIPTEN__
+
 #ifdef USE_SDL1
 
  SDL_WM_SetCaption(title, NULL);
@@ -313,6 +315,8 @@ void guicore_setcaption(const char* title)
 #else
 
  SDL_SetWindowTitle(guicore_window, title);
+
+#endif
 
 #endif
 }
