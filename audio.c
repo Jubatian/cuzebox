@@ -33,10 +33,24 @@
 
 
 /* Preferred audio sample increment fraction */
-#define AUDIO_INC_P    (((auint)(15720U) * 0x10000U) / 48000U)
+#define AUDIO_INC_P    (((auint)(15734U) * 0x10000U) / 48000U)
 
-/* Ring buffer size, must be a power of 2. */
-#define AUDIO_BUF_SIZE 4096U
+/* Audio output buffer size, must be a power of 2 (48KHz samples) */
+#ifndef __EMSCRIPTEN__
+#define AUDIO_OUT_SIZE 2048U
+#else
+#define AUDIO_OUT_SIZE 4096U
+#endif
+
+/* Preferred buffer filledness. Good value depends on output buffer size.
+** (A 48KHz output sample roughly equals 3 Uzebox samples, the fill must be
+** at least the consumed Uzebox sample count to have a chance of smooth
+** playback) */
+#define AUDIO_FILL     ((AUDIO_OUT_SIZE / 3U) * 2U)
+
+/* Ring buffer size, must be a power of 2 (15.7KHz Uzebox samples) */
+#define AUDIO_BUF_SIZE (AUDIO_OUT_SIZE * 4U)
+
 
 /* Ring buffer of samples */
 static uint8 audio_buf[AUDIO_BUF_SIZE];
@@ -68,6 +82,7 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  auint i;
  auint brem = (audio_buf_w - audio_buf_r) & (AUDIO_BUF_SIZE - 1U);
  auint brav = brem;
+ boole tbd  = FALSE;
 
  for (i = 0U; i < 31U; i++){ brav += audio_pbrem[i]; }
  brav = (brav + 15U) >> 5;
@@ -76,17 +91,17 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 
  /* Propotional */
 
- if (brav < (262U * 5U)){
-  if (audio_inc > (((AUDIO_INC_P) *  95U) / 100U)){
+ if (brav < AUDIO_FILL){
+  if (audio_inc > (((AUDIO_INC_P) *  75U) / 100U)){ /* Allow up to 25% slow down (for too slow machines) */
    if (brav <= audio_pbrav){ /* Only push it until tendency turns around */
-    i = ((262U * 5U) - brav);
+    i = (AUDIO_FILL - brav);
     audio_inc -= ((AUDIO_INC_P * i) + 0x7FFFFU) / 0x80000U;
    }
   }
  }else{
   if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
    if (brav >= audio_pbrav){ /* Only push it until tendency turns around */
-    i = (brav - (262U * 5U));
+    i = (brav - AUDIO_FILL);
     audio_inc += ((AUDIO_INC_P * i) + 0x7FFFFU) / 0x80000U;
    }
   }
@@ -106,7 +121,8 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 
  for (i = 0U; i < len; i++){
   if (audio_buf_w == audio_buf_r){
-   stream[i] = 0x80U;
+   stream[i] = audio_buf[(audio_buf_r - 1U) & (AUDIO_BUF_SIZE - 1U)];
+   tbd = TRUE;
   }else{
    stream[i] = audio_buf[audio_buf_r];
    audio_frac += audio_inc;
@@ -116,6 +132,13 @@ void audio_callback(void* dummy, Uint8* stream, int len)
    }
   }
  }
+
+ /* If there was a total buffer depletion, assume some transient problem and
+ ** ignore it instead of scaling frequency to it. */
+
+ if (tbd){ brem = (AUDIO_FILL / 8U) * 7U; }
+
+ /* Finalize scaling state */
 
  for (i = 30U; i != 0U; i--){ audio_pbrem[i] = audio_pbrem[i - 1U]; }
  audio_pbrem[0] = brem;
@@ -148,7 +171,7 @@ boole audio_init(void)
  desired.format   = AUDIO_U8;
  desired.callback = audio_callback;
  desired.channels = 1U;
- desired.samples  = 2048U;
+ desired.samples  = AUDIO_OUT_SIZE;
 
  audio_dev = SDL_OpenAudioDevice(NULL, 0, &desired, &dummy, 0);
  if (audio_dev == 0U){

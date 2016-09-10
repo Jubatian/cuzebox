@@ -60,6 +60,9 @@ static auint main_tfrac = 0U;
 /* Frame counter for frame dropping and limiting */
 static auint main_frc = 0U;
 
+/* Frame dropping tendency; if nonzero, it drops frames */
+static auint main_fdrop = 0U;
+
 /* 500 millisecond counter to generate FPS info */
 static auint main_t500 = 0U;
 
@@ -143,6 +146,7 @@ static void main_loop(void)
  auint favg;
  auint ccur;
  auint cdif;
+ auint fdtmp = main_fdrop;
  boole fdrop = FALSE;
  boole eepch;
  char  tstr[100];
@@ -161,21 +165,28 @@ static void main_loop(void)
  /* Handle divergences */
 
  if (drift > 0x80000000U){    /* Possibly too slow */
-  if ((drift + 50U) > 0x80000000U){
-   drift = (auint)(0U) - 50U; /* Just limit */
-   if ((main_frc & 1U) != 0U){ fdrop = TRUE; } /* Drop a frame */
+  if ((drift + 75U) > 0x80000000U){
+   drift = (auint)(0U) - 50U; /* Limit (throw away memory) */
+   if (fdtmp == 0U){ fdtmp = 30U; }
+   if (fdtmp < 60U){ fdtmp ++; } /* Push frame drop request */
   }
  }else{                       /* Possibly too fast */
-  if (drift > 25U){           /* Waste away time by dropping main loops */
-   SDL_Delay(5);
+  if ((drift > 25U)){         /* Waste away time by dropping main loops */
+   if (fdtmp != 0U){ fdtmp --; } /* Eat away frame drop request */
+#ifndef __EMSCRIPTEN__
+   SDL_Delay(5);              /* Emscripten doesn't need this since the loop is a callback */
+#endif
    return;
   }
  }
+ if ( (fdtmp != 0U) &&
+      ((main_frc & 1U) != 0U) ){ fdrop = TRUE; } /* Skip every second frame if necessary */
 
  /* Now the drift can be saved */
 
  main_tdrift = drift;
  main_ptick  = ctick;
+ main_fdrop  = fdtmp;
  main_frc   ++;
  if (main_tfrac >= 2U){ main_tfrac = 0U; }
  else{                  main_tfrac ++;   }
@@ -222,6 +233,7 @@ static void main_loop(void)
   main_t5_frp[1] = main_t5_frp[0];
   main_t5_frp[0] = main_t5_frc;
   main_t5_frc    = 0U;
+  if (main_fdrop != 0U){ favg = favg / 2U; }
 
   ccur       = cu_avr_getcycle();
   cdif       = (ccur - main_t5_cc) & 0xFFFFFFFFU;
