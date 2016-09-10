@@ -215,8 +215,8 @@ auint frame_run(boole drop)
 {
  auint           ret;
  uint32 const*   pal = guicore_getpalette();
- uint32*         pix;
- auint           ptc;
+ uint32*         pix = guicore_getpixbuf();
+ auint           ptc = guicore_getpitch();
  auint           row;
  uint8*          mem;
  auint           i;
@@ -226,14 +226,6 @@ auint frame_run(boole drop)
  auint           col;
  cu_row_t const* erowd;
  cu_frameinfo_t const* finfo;
-
- /* If the pixel buffer can't be locked, render skips. */
-
- if (!drop){
-  pix = guicore_getpixbuf();
-  ptc = guicore_getpitch();
-  if (pix == NULL){ drop = TRUE; }
- }
 
  /* Clear buffer. Maybe later will implement some more optimal solution here
  ** to avoid this full clear, but it is not known which lines the emulator
@@ -386,10 +378,6 @@ auint frame_run(boole drop)
    }
   }
  }
-
- /* Release pixel buffer, done */
-
- if (!drop){ guicore_relpixbuf(); }
 
  frame_ctr ++;
 

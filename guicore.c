@@ -35,8 +35,6 @@
 
 /* SDL screen */
 static SDL_Surface*  guicore_surface;
-/* Target pixel buffer */
-static uint32        guicore_pixels[640U * 560U];
 
 #else
 
@@ -44,13 +42,13 @@ static uint32        guicore_pixels[640U * 560U];
 static SDL_Window*   guicore_window;
 /* SDL renderer */
 static SDL_Renderer* guicore_renderer;
-/* SDL surface which is used as target pixel buffer */
-static SDL_Surface*  guicore_surface;
 /* SDL texture which is used to interface with the renderer */
 static SDL_Texture*  guicore_texture;
 
 #endif
 
+/* Target pixel buffer */
+static uint32        guicore_pixels[640U * 560U];
 
 /* Uzebox palette */
 static uint32        guicore_palette[256];
@@ -94,6 +92,13 @@ boole guicore_init(auint flags, const char* title)
   goto fail_qt;
  }
 
+ for (i = 0U; i < 256U; i++){
+  r = (((i >> 0) & 7U) * 255U) / 7U;
+  g = (((i >> 3) & 7U) * 255U) / 7U;
+  b = (((i >> 6) & 3U) * 255U) / 3U;
+  guicore_palette[i] = SDL_MapRGB(guicore_surface->format, r, g, b);
+ }
+
 #else
 
  guicore_window = SDL_CreateWindow(
@@ -123,35 +128,28 @@ boole guicore_init(auint flags, const char* title)
   goto fail_ren;
  }
 
- guicore_surface = SDL_CreateRGBSurface(
-     0U, 640U, 560U, 32U, 0U, 0U, 0U, 0U);
- if (guicore_surface == NULL){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
-  goto fail_ren;
- }
-
  guicore_texture = SDL_CreateTexture(
      guicore_renderer,
-     guicore_surface->format->format,
-     SDL_TEXTUREACCESS_STATIC,
-     guicore_surface->w,
-     guicore_surface->h);
+     SDL_PIXELFORMAT_RGBA8888,
+     SDL_TEXTUREACCESS_STREAMING,
+     640U,
+     560U);
  if (guicore_texture == NULL){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
-  goto fail_sur;
+  goto fail_ren;
  }
 
  SDL_RenderClear(guicore_renderer);
  SDL_RenderPresent(guicore_renderer);
 
-#endif
-
  for (i = 0U; i < 256U; i++){
   r = (((i >> 0) & 7U) * 255U) / 7U;
   g = (((i >> 3) & 7U) * 255U) / 7U;
   b = (((i >> 6) & 3U) * 255U) / 3U;
-  guicore_palette[i] = SDL_MapRGB(guicore_surface->format, r, g, b);
+  guicore_palette[i] = (r << 24) | (g << 16) | (b << 8) | 0xFFU;
  }
+
+#endif
 
  return TRUE;
 
@@ -159,8 +157,6 @@ boole guicore_init(auint flags, const char* title)
 
 #else
 
-fail_sur:
- SDL_FreeSurface(guicore_surface);
 fail_ren:
  SDL_DestroyRenderer(guicore_renderer);
 fail_wnd:
@@ -186,7 +182,6 @@ void  guicore_quit(void)
 #else
 
  SDL_DestroyTexture(guicore_texture);
- SDL_FreeSurface(guicore_surface);
  SDL_DestroyRenderer(guicore_renderer);
  SDL_DestroyWindow(guicore_window);
 
@@ -204,16 +199,7 @@ void  guicore_quit(void)
 */
 uint32* guicore_getpixbuf(void)
 {
-#ifdef USE_SDL1
-
  return &(guicore_pixels[0]);
-
-#else
-
- if (SDL_LockSurface(guicore_surface) < 0){ return NULL; }
- return (uint32*)(guicore_surface->pixels);
-
-#endif
 }
 
 
@@ -223,13 +209,6 @@ uint32* guicore_getpixbuf(void)
 */
 void  guicore_relpixbuf(void)
 {
-#ifdef USE_SDL1
-
-#else
-
- SDL_UnlockSurface(guicore_surface);
-
-#endif
 }
 
 
@@ -239,15 +218,7 @@ void  guicore_relpixbuf(void)
 */
 auint guicore_getpitch(void)
 {
-#ifdef USE_SDL1
-
  return 640U;
-
-#else
-
- return ((guicore_surface->pitch) / sizeof(uint32));
-
-#endif
 }
 
 
@@ -288,10 +259,21 @@ void guicore_update(boole drop)
 
 #else
 
+ auint i;
+ void* pixels;
+ int   pitch;
+
  if (drop){ return; }
 
- SDL_UpdateTexture(guicore_texture, NULL,
-                   guicore_surface->pixels, guicore_surface->pitch);
+ if (SDL_LockTexture(guicore_texture, NULL, &pixels, &pitch) == 0){
+  for (i = 0U; i < 560U; i++){
+   memcpy( (char*)(pixels) + ((auint)(pitch) * i),
+           &(guicore_pixels[640U * i]),
+           640U * sizeof(uint32) );
+  }
+  SDL_UnlockTexture(guicore_texture);
+ }
+
  SDL_RenderClear(guicore_renderer);
  SDL_RenderCopy(guicore_renderer, guicore_texture, NULL, NULL);
  SDL_RenderPresent(guicore_renderer);

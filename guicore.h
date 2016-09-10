@@ -58,17 +58,9 @@ void  guicore_quit(void);
 
 
 /*
-** Retrieves 640 x 560 GUI surface's pixel buffer. A matching
-** guicore_relpixbuf() must be made after rendering. It may return NULL if it
-** is not possible to lock the pixel buffer for access.
+** Retrieves 640 x 560 GUI surface's pixel buffer.
 */
 uint32* guicore_getpixbuf(void);
-
-
-/*
-** Releases the pixel buffer.
-*/
-void  guicore_relpixbuf(void);
 
 
 /*
