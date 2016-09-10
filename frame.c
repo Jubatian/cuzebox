@@ -92,10 +92,10 @@ static void frame_clear(uint32* pix, auint ptc,
 
 
 /*
-** Renders a line using a fast software scaling with scanlines:
-** dest0 and dest1 are the two target lines to fill; len is in target pixels.
+** Renders a line using a fast software scaling.
+** dest is the target line to fill; len is in target pixels.
 */
-static void frame_line32(uint32* dest0, uint32* dest1,
+static void frame_line32(uint32* dest,
                          uint8 const* src, auint off, auint len,
                          uint32 const* pal)
 {
@@ -122,18 +122,15 @@ static void frame_line32(uint32* dest0, uint32* dest1,
   t3 = (pal[src[(sp + 2U) & 0x7FFU]] & 0xF0F0F0F0U) >> 4;
   t4 = (pal[src[(sp + 3U) & 0x7FFU]] & 0xF0F0F0F0U) >> 4;
   px = (t0 * 4U) + (t1 * 4U) + (t2 * 4U) + (t3 * 4U) + (t4 * 1U);
-  dest0[dp + 0U] = px;
-  dest1[dp + 0U] = ((px & 0xF8F8F8F8U) >> 3) * 7U;
+  dest [dp + 0U] = px;
   t0 = (pal[src[(sp + 4U) & 0x7FFU]] & 0xF0F0F0F0U) >> 4;
   t1 = (pal[src[(sp + 5U) & 0x7FFU]] & 0xF0F0F0F0U) >> 4;
   px = (t2 * 2U) + (t3 * 4U) + (t4 * 5U) + (t0 * 4U) + (t1 * 2U);
-  dest0[dp + 1U] = px;
-  dest1[dp + 1U] = ((px & 0xF8F8F8F8U) >> 3) * 7U;
+  dest [dp + 1U] = px;
   t2 = (pal[src[(sp + 6U) & 0x7FFU]] & 0xF0F0F0F0U) >> 4;
   t3 = (pal[src[(sp + 7U) & 0x7FFU]] & 0xF0F0F0F0U) >> 4;
   px = (t4 * 1U) + (t0 * 4U) + (t1 * 4U) + (t2 * 4U) + (t3 * 4U);
-  dest0[dp + 2U] = px;
-  dest1[dp + 2U] = ((px & 0xF8F8F8F8U) >> 3) * 7U;
+  dest [dp + 2U] = px;
   sp += 7U;
   t0 = t2;
   t1 = t3;
@@ -149,12 +146,9 @@ static void frame_pixbox(uint32* pix, auint ptc,
                          auint x, auint y, uint8 col,
                          uint32 const* pal)
 {
- auint  pos = (x << 1) + ((y << 1) * ptc);
+ auint  pos = (x << 1) + (y * ptc);
  uint32 c32 = ((pal[col] & 0xF8F8F8F8U) >> 3) * 6U;
 
- pix[pos + 0U] = c32;
- pix[pos + 1U] = c32;
- pos += ptc;
  pix[pos + 0U] = c32;
  pix[pos + 1U] = c32;
 }
@@ -232,7 +226,7 @@ auint frame_run(boole drop)
  ** would produce. */
 
  if (!drop){
-  frame_clear(pix, ptc, 0U, 0U, 640U, 560U, pal[0]);
+  frame_clear(pix, ptc, 0U, 0U, 640U, 270U, pal[0]);
  }
 
  /* Build the frame */
@@ -253,8 +247,7 @@ auint frame_run(boole drop)
         ((erowd->pno) < 246U) &&
         (!drop) ){
     frame_line32(
-        pix + ((((erowd->pno) * 2U + 0U) * ptc) + 8U),
-        pix + ((((erowd->pno) * 2U + 1U) * ptc) + 8U),
+        pix + (((erowd->pno) * ptc) + 8U),
         &(erowd->pixels[0]),
         291U,
         624U,

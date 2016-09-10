@@ -36,6 +36,22 @@
 
 
 
+/*
+** Notes on the display layout:
+**
+** The backbuffer is 640 x 270 with 2:1 PAR. This is selected for retaining
+** efficiency for both 640 x 560 and 320 x 270 renders. In 640 x 560 it
+** allows good horizontal resolution (better render of high-resolution
+** Uzebox graphics modes).
+**
+** It is possible that only the Uzebox's screen is displayed (and nothing of
+** the debug and user interface regions around). This screen has the upper
+** left corner at 5:18 with 310 x 228 dimensions (assuming a 320 x 270 render
+** target).
+*/
+
+
+
 /* Request full screen GUI */
 #define GUICORE_FULLSCREEN 0x0001U
 /* Disable sticking to display refresh rate (assumed >= 60Hz) */
@@ -58,7 +74,7 @@ void  guicore_quit(void);
 
 
 /*
-** Retrieves 640 x 560 GUI surface's pixel buffer.
+** Retrieves 640 x 270 GUI surface's pixel buffer.
 */
 uint32* guicore_getpixbuf(void);
 

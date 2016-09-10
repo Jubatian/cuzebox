@@ -57,6 +57,65 @@ static uint32        guicore_palette[256];
 static const char*   guicore_sdlerr = "SDL Error: %s\n";
 
 
+
+/*
+** Renders double scan output. The source is the target pixel buffer
+** (guicore_pixels). Locations are as for single scan 320 x 270 output.
+*/
+static void guicore_render_2x(uint32* dest, auint dpitch,
+                              auint xd, auint yd,
+                              auint xs, auint ys,
+                              auint w,  auint h)
+{
+ auint  i;
+ auint  j;
+ auint  destoff0;
+ auint  destoff1;
+ auint  srcoff;
+ uint32 col;
+
+ for (i = 0U; i < (h << 1); i += 2U){
+  destoff0 = ((dpitch) * ((yd << 1) + i     )) + (xd << 1);
+  destoff1 = ((dpitch) * ((yd << 1) + i + 1U)) + (xd << 1);
+  srcoff   = (640U * (ys + (i >> 1))) + (xs << 1);
+  for (j = 0U; j < (w << 1); j ++){
+   col = guicore_pixels[srcoff + j];
+   dest[destoff0 + j] = col;
+   dest[destoff1 + j] = ((col & 0xF8F8F8F8) >> 3) * 7U;
+  }
+ }
+}
+
+
+
+/*
+** Renders single scan output. The source is the target pixel buffer
+** (guicore_pixels). Locations are as for single scan 320 x 270 output.
+*/
+static void guicore_render_1x(uint32* dest, auint dpitch,
+                              auint xd, auint yd,
+                              auint xs, auint ys,
+                              auint w,  auint h)
+{
+ auint  i;
+ auint  j;
+ auint  destoff;
+ auint  srcoff;
+ uint32 col;
+
+ for (i = 0U; i < h; i ++){
+  destoff = ((dpitch) * (yd + i)) + xd;
+  srcoff  = (640U * (ys + i)) + (xs << 1);
+  for (j = 0U; j < w; j ++){
+   col = ((guicore_pixels[srcoff + (j << 1)     ] & 0xFEFEFEFEU) >> 1) +
+         ((guicore_pixels[srcoff + (j << 1) + 1U] & 0xFEFEFEFEU) >> 1);
+   dest[destoff + j] = col;
+  }
+ }
+}
+
+
+
 /*
 ** Attempts to initialize the GUI. Returns TRUE on success. This must be
 ** called first before any platform specific elements as it initializes
@@ -130,7 +189,7 @@ boole guicore_init(auint flags, const char* title)
 
  guicore_texture = SDL_CreateTexture(
      guicore_renderer,
-     SDL_PIXELFORMAT_RGBA8888,
+     SDL_PIXELFORMAT_RGBX8888,
      SDL_TEXTUREACCESS_STREAMING,
      640U,
      560U);
@@ -243,34 +302,31 @@ void guicore_update(boole drop)
 {
 #ifdef USE_SDL1
 
- auint i;
-
  if (drop){ return; }
 
  if (SDL_LockSurface(guicore_surface) == 0){
-  for (i = 0U; i < 560U; i++){
-   memcpy( (char*)(guicore_surface->pixels) + ((guicore_surface->pitch) * i),
-           &(guicore_pixels[640U * i]),
-           640U * sizeof(uint32) );
-  }
+  guicore_render_2x(
+      guicore_surface->pixels, (guicore_surface->pitch) >> 2,
+      0U, 0U,
+      0U, 0U,
+      320U, 270U);
   SDL_UnlockSurface(guicore_surface);
  }
  SDL_UpdateRect(guicore_surface, 0, 0, 0, 0);
 
 #else
 
- auint i;
- void* pixels;
- int   pitch;
+ void*   pixels;
+ int     pitch;
 
  if (drop){ return; }
 
  if (SDL_LockTexture(guicore_texture, NULL, &pixels, &pitch) == 0){
-  for (i = 0U; i < 560U; i++){
-   memcpy( (char*)(pixels) + ((auint)(pitch) * i),
-           &(guicore_pixels[640U * i]),
-           640U * sizeof(uint32) );
-  }
+  guicore_render_2x(
+      pixels, pitch >> 2,
+      0U, 0U,
+      0U, 0U,
+      320U, 270U);
   SDL_UnlockTexture(guicore_texture);
  }
 
