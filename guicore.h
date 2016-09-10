@@ -58,9 +58,17 @@ void  guicore_quit(void);
 
 
 /*
-** Retrieves 640 x 560 GUI surface's pixel buffer
+** Retrieves 640 x 560 GUI surface's pixel buffer. A matching
+** guicore_relpixbuf() must be made after rendering. It may return NULL if it
+** is not possible to lock the pixel buffer for access.
 */
 uint32* guicore_getpixbuf(void);
+
+
+/*
+** Releases the pixel buffer.
+*/
+void  guicore_relpixbuf(void);
 
 
 /*
@@ -82,12 +90,6 @@ uint32 const* guicore_getpalette(void);
 ** drop is TRUE, it does nothing (drops the frame).
 */
 void guicore_update(boole drop);
-
-
-/*
-** Clears a region on the surface
-*/
-void guicore_clear(auint x, auint y, auint w, auint h);
 
 
 /*

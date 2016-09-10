@@ -28,7 +28,16 @@
 
 
 #include "audio.h"
-#include <SDL2/SDL.h>
+
+
+
+/*
+** Note:
+**
+** This uses the legacy SDL API to support compiling with SDL1 as well. Don't
+** try to "fix" this! (It will break SDL1 builds, notably Emscripten!)
+*/
+
 
 
 
@@ -173,11 +182,12 @@ boole audio_init(void)
  desired.channels = 1U;
  desired.samples  = AUDIO_OUT_SIZE;
 
- audio_dev = SDL_OpenAudioDevice(NULL, 0, &desired, &dummy, 0);
+ audio_dev = 1U;
+ if (SDL_OpenAudio(&desired, &dummy) < 0){ audio_dev = 0U; }
  if (audio_dev == 0U){
   return FALSE;
  }
- SDL_PauseAudioDevice(audio_dev, 0);
+ SDL_PauseAudio(0);
 
  return TRUE;
 }
@@ -190,7 +200,7 @@ boole audio_init(void)
 void  audio_quit(void)
 {
  if (audio_dev != 0U){
-  SDL_CloseAudioDevice(audio_dev);
+  SDL_CloseAudio();
   audio_dev = 0U;
  }
 }

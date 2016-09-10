@@ -35,10 +35,6 @@
 #include "audio.h"
 #include "frame.h"
 #include "eepdump.h"
-#include <SDL2/SDL.h>
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 
 
 
@@ -95,35 +91,38 @@ static void main_setctr(SDL_Event const* ev)
 
   if ((ev->type) == SDL_KEYDOWN){ press = TRUE; }
 
-  switch (ev->key.keysym.scancode){
-   case SDL_SCANCODE_LEFT:
+  /* Note: For SDL2 the scancode has more sense here, but SDL1 does not
+  ** support that. This solution works for now on both */
+
+  switch (ev->key.keysym.sym){
+   case SDLK_LEFT:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_LEFT, press);
     break;
-   case SDL_SCANCODE_RIGHT:
+   case SDLK_RIGHT:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_RIGHT, press);
     break;
-   case SDL_SCANCODE_UP:
+   case SDLK_UP:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_UP, press);
     break;
-   case SDL_SCANCODE_DOWN:
+   case SDLK_DOWN:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_DOWN, press);
     break;
-   case SDL_SCANCODE_A:
+   case SDLK_q:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press);
     break;
-   case SDL_SCANCODE_S:
+   case SDLK_w:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press);
     break;
-   case SDL_SCANCODE_Z:
+   case SDLK_a:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press);
     break;
-   case SDL_SCANCODE_X:
+   case SDLK_s:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press);
     break;
-   case SDL_SCANCODE_RETURN:
+   case SDLK_RETURN:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
     break;
-   case SDL_SCANCODE_SPACE:
+   case SDLK_SPACE:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_START, press);
     break;
    default:
@@ -166,13 +165,13 @@ static void main_loop(void)
 
  if (drift > 0x80000000U){    /* Possibly too slow */
   if ((drift + 75U) > 0x80000000U){
-   drift = (auint)(0U) - 50U; /* Limit (throw away memory) */
+   drift = (auint)(0U) - 75U; /* Limit (throw away memory) */
    if (fdtmp == 0U){ fdtmp = 30U; }
    if (fdtmp < 60U){ fdtmp ++; } /* Push frame drop request */
   }
  }else{                       /* Possibly too fast */
+  if (fdtmp != 0U){ fdtmp --; }  /* Eat away frame drop request */
   if ((drift > 25U)){         /* Waste away time by dropping main loops */
-   if (fdtmp != 0U){ fdtmp --; } /* Eat away frame drop request */
 #ifndef __EMSCRIPTEN__
    SDL_Delay(5);              /* Emscripten doesn't need this since the loop is a callback */
 #endif

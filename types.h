@@ -34,6 +34,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef USE_SDL1
+#include <SDL/SDL.h>
+#else
+#include <SDL2/SDL.h>
+#endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 
 
 typedef   signed  int   asint;  /* Architecture signed integer (At least 2^31) */

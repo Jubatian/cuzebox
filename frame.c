@@ -72,6 +72,26 @@ static const uint8 frame_syn_nf[5] = {0x4FU, 0x4FU, 0x4FU, 0x4FU, 0x4FU};
 
 
 /*
+** Clears a rectangular region to the given color
+*/
+static void frame_clear(uint32* pix, auint ptc,
+                        auint x, auint y, auint w, auint h, uint32 col)
+{
+ auint i;
+ auint j;
+ auint p;
+
+ for (j = 0U; j < h; j++){
+  p = ((y + j) * ptc) + x;
+  for (i = 0U; i < w; i++){
+   pix[p + i] = col;
+  }
+ }
+}
+
+
+
+/*
 ** Renders a line using a fast software scaling with scanlines:
 ** dest0 and dest1 are the two target lines to fill; len is in target pixels.
 */
@@ -195,8 +215,8 @@ auint frame_run(boole drop)
 {
  auint           ret;
  uint32 const*   pal = guicore_getpalette();
- uint32*         pix = guicore_getpixbuf();
- auint           ptc = guicore_getpitch();
+ uint32*         pix;
+ auint           ptc;
  auint           row;
  uint8*          mem;
  auint           i;
@@ -206,6 +226,22 @@ auint frame_run(boole drop)
  auint           col;
  cu_row_t const* erowd;
  cu_frameinfo_t const* finfo;
+
+ /* If the pixel buffer can't be locked, render skips. */
+
+ if (!drop){
+  pix = guicore_getpixbuf();
+  ptc = guicore_getpitch();
+  if (pix == NULL){ drop = TRUE; }
+ }
+
+ /* Clear buffer. Maybe later will implement some more optimal solution here
+ ** to avoid this full clear, but it is not known which lines the emulator
+ ** would produce. */
+
+ if (!drop){
+  frame_clear(pix, ptc, 0U, 0U, 640U, 560U, pal[0]);
+ }
 
  /* Build the frame */
 
@@ -282,14 +318,6 @@ auint frame_run(boole drop)
 
  /* Fill in other areas providing info */
 
- /* Clear unfilled regions */
-
- if (!drop){
-  guicore_clear(10U,   0U * 2U, 620U, 18U * 2U);
-  guicore_clear(10U, 248U * 2U, 620U, 24U * 2U);
-  guicore_clear( 0U, 272U * 2U, 640U,  8U * 2U);
- }
-
  /* Produce sync info sidebar */
 
  if (!drop){
@@ -358,6 +386,10 @@ auint frame_run(boole drop)
    }
   }
  }
+
+ /* Release pixel buffer, done */
+
+ if (!drop){ guicore_relpixbuf(); }
 
  frame_ctr ++;
 

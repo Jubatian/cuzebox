@@ -28,9 +28,17 @@
 
 
 #include "guicore.h"
-#include <SDL2/SDL.h>
 
 
+
+#ifdef USE_SDL1
+
+/* SDL screen */
+static SDL_Surface*  guicore_surface;
+/* Target pixel buffer */
+static uint32        guicore_pixels[640U * 560U];
+
+#else
 
 /* SDL window */
 static SDL_Window*   guicore_window;
@@ -40,6 +48,9 @@ static SDL_Renderer* guicore_renderer;
 static SDL_Surface*  guicore_surface;
 /* SDL texture which is used to interface with the renderer */
 static SDL_Texture*  guicore_texture;
+
+#endif
+
 
 /* Uzebox palette */
 static uint32        guicore_palette[256];
@@ -60,10 +71,30 @@ boole guicore_init(auint flags, const char* title)
  auint g;
  auint b;
 
+#ifdef __EMSCRIPTEN__
+
+ EM_ASM(
+  SDL.defaults.copyOnLock = false;
+  SDL.defaults.discardOnLock = true;
+  SDL.defaults.opaqueFrontBuffer = false;
+ );
+
+#endif
+
  if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
   goto fail_n;
  }
+
+#ifdef USE_SDL1
+
+ guicore_surface = SDL_SetVideoMode(640U, 560U, 32U, SDL_HWSURFACE);
+ if (guicore_surface == NULL){
+  fprintf(stderr, guicore_sdlerr, SDL_GetError());
+  goto fail_qt;
+ }
+
+#else
 
  guicore_window = SDL_CreateWindow(
      title,
@@ -113,6 +144,8 @@ boole guicore_init(auint flags, const char* title)
  SDL_RenderClear(guicore_renderer);
  SDL_RenderPresent(guicore_renderer);
 
+#endif
+
  for (i = 0U; i < 256U; i++){
   r = (((i >> 0) & 7U) * 255U) / 7U;
   g = (((i >> 3) & 7U) * 255U) / 7U;
@@ -122,12 +155,19 @@ boole guicore_init(auint flags, const char* title)
 
  return TRUE;
 
+#ifdef USE_SDL1
+
+#else
+
 fail_sur:
  SDL_FreeSurface(guicore_surface);
 fail_ren:
  SDL_DestroyRenderer(guicore_renderer);
 fail_wnd:
  SDL_DestroyWindow(guicore_window);
+
+#endif
+
 fail_qt:
  SDL_Quit();
 fail_n:
@@ -141,21 +181,55 @@ fail_n:
 */
 void  guicore_quit(void)
 {
+#ifdef USE_SDL1
+
+#else
+
  SDL_DestroyTexture(guicore_texture);
  SDL_FreeSurface(guicore_surface);
  SDL_DestroyRenderer(guicore_renderer);
  SDL_DestroyWindow(guicore_window);
+
+#endif
+
  SDL_Quit();
 }
 
 
 
 /*
-** Retrieves 640 x 560 GUI surface's pixel buffer
+** Retrieves 640 x 560 GUI surface's pixel buffer. A matching
+** guicore_relpixbuf() must be made after rendering. It may return NULL if it
+** is not possible to lock the pixel buffer for access.
 */
 uint32* guicore_getpixbuf(void)
 {
+#ifdef USE_SDL1
+
+ return &(guicore_pixels[0]);
+
+#else
+
+ if (SDL_LockSurface(guicore_surface) < 0){ return NULL; }
  return (uint32*)(guicore_surface->pixels);
+
+#endif
+}
+
+
+
+/*
+** Releases the pixel buffer.
+*/
+void  guicore_relpixbuf(void)
+{
+#ifdef USE_SDL1
+
+#else
+
+ SDL_UnlockSurface(guicore_surface);
+
+#endif
 }
 
 
@@ -165,7 +239,15 @@ uint32* guicore_getpixbuf(void)
 */
 auint guicore_getpitch(void)
 {
+#ifdef USE_SDL1
+
+ return 640U;
+
+#else
+
  return ((guicore_surface->pitch) / sizeof(uint32));
+
+#endif
 }
 
 
@@ -188,27 +270,33 @@ uint32 const* guicore_getpalette(void)
 */
 void guicore_update(boole drop)
 {
+#ifdef USE_SDL1
+
+ auint i;
+
  if (drop){ return; }
+
+ if (SDL_LockSurface(guicore_surface) == 0){
+  for (i = 0U; i < 560U; i++){
+   memcpy( (char*)(guicore_surface->pixels) + ((guicore_surface->pitch) * i),
+           &(guicore_pixels[640U * i]),
+           640U * sizeof(uint32) );
+  }
+  SDL_UnlockSurface(guicore_surface);
+ }
+ SDL_UpdateRect(guicore_surface, 0, 0, 0, 0);
+
+#else
+
+ if (drop){ return; }
+
  SDL_UpdateTexture(guicore_texture, NULL,
                    guicore_surface->pixels, guicore_surface->pitch);
  SDL_RenderClear(guicore_renderer);
  SDL_RenderCopy(guicore_renderer, guicore_texture, NULL, NULL);
  SDL_RenderPresent(guicore_renderer);
-}
 
-
-
-/*
-** Clears a region on the surface
-*/
-void guicore_clear(auint x, auint y, auint w, auint h)
-{
- SDL_Rect rect;
- if (x < 640U){ rect.x = x; }else{ rect.x = 639U; }
- if (y < 560U){ rect.y = y; }else{ rect.y = 559U; }
- if (((auint)(rect.x) + w) < 640U){ rect.w = w; }else{ rect.w = 640U - (auint)(rect.x); }
- if (((auint)(rect.y) + h) < 560U){ rect.h = h; }else{ rect.h = 560U - (auint)(rect.y); }
- SDL_FillRect(guicore_surface, &rect, guicore_palette[0]);
+#endif
 }
 
 
@@ -218,5 +306,13 @@ void guicore_clear(auint x, auint y, auint w, auint h)
 */
 void guicore_setcaption(const char* title)
 {
+#ifdef USE_SDL1
+
+ SDL_WM_SetCaption(title, NULL);
+
+#else
+
  SDL_SetWindowTitle(guicore_window, title);
+
+#endif
 }
