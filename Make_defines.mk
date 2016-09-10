@@ -70,9 +70,8 @@ endif
 #
 ifeq ($(TSYS),emscripten)
 OUT=cuzebox.html
-EFLAGS= -s USE_SDL=1 -s NO_EXIT_RUNTIME=1 -s NO_DYNAMIC_EXECUTION=1
-CFLAGS+= -DTARGET_EMSCRIPTEN -DUSE_SDL1 $(EFLAGS)
-LINKB=$(EFLAGS) --preload-file gamefile.uze
+CFLAGS+= -DTARGET_EMSCRIPTEN -DUSE_SDL1 -s USE_SDL=1 -s NO_EXIT_RUNTIME=1 -s NO_DYNAMIC_EXECUTION=1
+LINKB= --preload-file gamefile.uze
 endif
 #
 #

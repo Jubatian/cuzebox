@@ -95,16 +95,16 @@ $(OBD)/cu_spi.o: cu_spi.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
 $(OBD)/guicore.o: guicore.c $(DEPS)
-	$(CC) -c $< -o $@ $(CFSIZ)
+	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/audio.o: audio.c $(DEPS)
-	$(CC) -c $< -o $@ $(CFSIZ)
+	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/frame.o: frame.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/eepdump.o: eepdump.c $(DEPS)
-	$(CC) -c $< -o $@ $(CFSPD)
+	$(CC) -c $< -o $@ $(CFSIZ)
 
 
 .PHONY: all clean
