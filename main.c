@@ -38,6 +38,9 @@
 
 
 
+/* Initial title */
+static const char* main_title = "CUzeBox";
+
 /* Cuzebox window title formatter */
 static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u";
 
@@ -70,6 +73,9 @@ static auint main_t5_frp[3] = {30U, 30U, 30U};
 
 /* Previous cycle counter value for the 500ms tick */
 static auint main_t5_cc;
+
+/* Request for discarding frame limitation */
+static boole main_nolimit = FALSE;
 
 /* Previous state of EEPROM changes to save only after a write burst was completed */
 static boole main_peepch = FALSE;
@@ -171,7 +177,11 @@ static void main_loop(void)
   }
  }else{                       /* Possibly too fast */
   if (fdtmp != 0U){ fdtmp --; }  /* Eat away frame drop request */
-  if ((drift > 25U)){         /* Waste away time by dropping main loops */
+  if (drift > 75U){           /* Limit drift (to not let it accumulating for a nolimit run) */
+   drift = 75U;
+  }
+  if ( ((drift > 25U)) &&     /* Waste away time by dropping main loops */
+       (!main_nolimit) ){     /* (unless frame rate limiter was turned off) */
 #ifndef __EMSCRIPTEN__
    SDL_Delay(5);              /* Emscripten doesn't need this since the loop is a callback */
 #endif
@@ -242,7 +252,7 @@ static void main_loop(void)
       &(tstr[0]),
       100U,
       main_title_fstr,
-      ((cdif * 100U) + 7159090U) / 14318180U,
+      (cdif + 71591U) / 143182U,
       ((cdif * 2U) / 1000000U),
       ((cdif * 2U) / 1000U) % 1000U,
       favg);
@@ -254,8 +264,46 @@ static void main_loop(void)
  /* Process events */
 
  while (SDL_PollEvent(&sdlevent) != 0){
+
   main_setctr(&sdlevent);
+
   if (sdlevent.type == SDL_QUIT){ main_exit = TRUE; }
+
+  if ((sdlevent.type) == SDL_KEYDOWN){
+
+   switch (sdlevent.key.keysym.sym){
+
+    case SDLK_ESCAPE:
+     main_exit = TRUE;
+     break;
+
+    case SDLK_F11:
+     if (!guicore_init(guicore_getflags() ^ GUICORE_FULLSCREEN, main_title)){ main_exit = TRUE; }
+     break;
+
+    case SDLK_F2:
+     if (!guicore_init(guicore_getflags() ^ GUICORE_SMALL, main_title)){ main_exit = TRUE; }
+     break;
+
+    case SDLK_F3:
+     if (!guicore_init(guicore_getflags() ^ GUICORE_GAMEONLY, main_title)){ main_exit = TRUE; }
+     break;
+
+    case SDLK_F4:
+     if (main_nolimit){
+      main_nolimit = FALSE;
+      if (!guicore_init(guicore_getflags() & (~GUICORE_NOVSYNC), main_title)){ main_exit = TRUE; }
+     }else{
+      main_nolimit = TRUE;
+      if (!guicore_init(guicore_getflags() | ( GUICORE_NOVSYNC), main_title)){ main_exit = TRUE; }
+     }
+     break;
+
+    default:
+     break;
+   }
+
+  }
  }
 }
 
@@ -291,7 +339,7 @@ int main (int argc, char** argv)
  snprintf(&(tstr[0]), 100U, main_title_fstr, 100U, 28U, 636U, 60U);
 
 
- if (!guicore_init(0U, &(tstr[0]))){
+ if (!guicore_init(0U, main_title)){
   return 1;
  }
  (void)(audio_init());

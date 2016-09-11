@@ -54,15 +54,21 @@
 
 /* Request full screen GUI */
 #define GUICORE_FULLSCREEN 0x0001U
-/* Disable sticking to display refresh rate (assumed >= 60Hz) */
+/* Disable sticking to display refresh rate */
 #define GUICORE_NOVSYNC    0x0002U
+/* Use a small screen (320 x 270 instead of 640 x 560) */
+#define GUICORE_SMALL      0x0004U
+/* Display only the game region */
+#define GUICORE_GAMEONLY   0x0008U
 
 
 
 /*
 ** Attempts to initialize the GUI. Returns TRUE on success. This must be
 ** called first before any platform specific elements as it initializes
-** those.
+** those. It can be recalled to change the display's properties (flags).
+** Note that if it fails, it tears fown the GUI and any platform specific
+** extensions!
 */
 boole guicore_init(auint flags, const char* title);
 
@@ -71,6 +77,12 @@ boole guicore_init(auint flags, const char* title);
 ** Tears down the GUI.
 */
 void  guicore_quit(void);
+
+
+/*
+** Gets current GUI flags.
+*/
+auint guicore_getflags(void);
 
 
 /*

@@ -31,6 +31,28 @@
 
 
 
+/* Display initialized internal marker in flags */
+#define GUICORE_INIT 0x10000U
+
+/* Window dimensions, double scan */
+#define WND_W    640U
+#define WND_H    560U
+/* Window dimensions, single scan */
+#define WNDS_W   320U
+#define WNDS_H   270U
+/* Window dimensions, double scan, game only */
+#define WNDG_W   620U
+#define WNDG_H   456U
+/* Window dimensions, single scan, game only */
+#define WNDSG_W  310U
+#define WNDSG_H  228U
+
+/* Target pixel buffer offsets for game only */
+#define TGOG_X   5U
+#define TGOG_Y   18U
+
+
+
 #ifdef USE_SDL1
 
 /* SDL screen */
@@ -53,6 +75,12 @@ static uint32        guicore_pixels[640U * 560U];
 /* Uzebox palette */
 static uint32        guicore_palette[256];
 
+/* Alpha mask, to cancel any alpha the destination might have */
+static uint32        guicore_amask;
+
+/* Initialization flags */
+static auint         guicore_flags;
+
 /* String constant for SDL error output */
 static const char*   guicore_sdlerr = "SDL Error: %s\n";
 
@@ -63,7 +91,6 @@ static const char*   guicore_sdlerr = "SDL Error: %s\n";
 ** (guicore_pixels). Locations are as for single scan 320 x 270 output.
 */
 static void guicore_render_2x(uint32* dest, auint dpitch,
-                              auint xd, auint yd,
                               auint xs, auint ys,
                               auint w,  auint h)
 {
@@ -75,13 +102,13 @@ static void guicore_render_2x(uint32* dest, auint dpitch,
  uint32 col;
 
  for (i = 0U; i < (h << 1); i += 2U){
-  destoff0 = ((dpitch) * ((yd << 1) + i     )) + (xd << 1);
-  destoff1 = ((dpitch) * ((yd << 1) + i + 1U)) + (xd << 1);
+  destoff0 = (dpitch * (i     ));
+  destoff1 = (dpitch * (i + 1U));
   srcoff   = (640U * (ys + (i >> 1))) + (xs << 1);
   for (j = 0U; j < (w << 1); j ++){
    col = guicore_pixels[srcoff + j];
    dest[destoff0 + j] = col;
-   dest[destoff1 + j] = ((col & 0xF8F8F8F8) >> 3) * 7U;
+   dest[destoff1 + j] = (((col & 0xF8F8F8F8) >> 3) * 7U) | guicore_amask;
   }
  }
 }
@@ -93,7 +120,6 @@ static void guicore_render_2x(uint32* dest, auint dpitch,
 ** (guicore_pixels). Locations are as for single scan 320 x 270 output.
 */
 static void guicore_render_1x(uint32* dest, auint dpitch,
-                              auint xd, auint yd,
                               auint xs, auint ys,
                               auint w,  auint h)
 {
@@ -104,11 +130,11 @@ static void guicore_render_1x(uint32* dest, auint dpitch,
  uint32 col;
 
  for (i = 0U; i < h; i ++){
-  destoff = ((dpitch) * (yd + i)) + xd;
+  destoff = (dpitch * i);
   srcoff  = (640U * (ys + i)) + (xs << 1);
   for (j = 0U; j < w; j ++){
-   col = ((guicore_pixels[srcoff + (j << 1)     ] & 0xFEFEFEFEU) >> 1) +
-         ((guicore_pixels[srcoff + (j << 1) + 1U] & 0xFEFEFEFEU) >> 1);
+   col = ( ((guicore_pixels[srcoff + (j << 1)     ] & 0xFEFEFEFEU) >> 1) +
+           ((guicore_pixels[srcoff + (j << 1) + 1U] & 0xFEFEFEFEU) >> 1) ) | guicore_amask;
    dest[destoff + j] = col;
   }
  }
@@ -119,7 +145,9 @@ static void guicore_render_1x(uint32* dest, auint dpitch,
 /*
 ** Attempts to initialize the GUI. Returns TRUE on success. This must be
 ** called first before any platform specific elements as it initializes
-** those.
+** those. It can be recalled to change the display's properties (flags).
+** Note that if it fails, it tears fown the GUI and any platform specific
+** extensions!
 */
 boole guicore_init(auint flags, const char* title)
 {
@@ -127,25 +155,77 @@ boole guicore_init(auint flags, const char* title)
  auint r;
  auint g;
  auint b;
-
-#ifdef __EMSCRIPTEN__
-
- EM_ASM(
-  SDL.defaults.copyOnLock = false;
-  SDL.defaults.discardOnLock = true;
-  SDL.defaults.opaqueFrontBuffer = false;
- );
-
+#ifndef USE_SDL1
+ auint renflags;
+ auint wndflags;
 #endif
+ auint wndw;
+ auint wndh;
 
- if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
-  goto fail_n;
- }
+ /* Prepare parameters */
 
 #ifdef USE_SDL1
 
- guicore_surface = SDL_SetVideoMode(640U, 560U, 32U, SDL_HWSURFACE);
+#else
+
+ wndflags = 0U;
+ if ((flags & GUICORE_FULLSCREEN) != 0U){ wndflags |= SDL_WINDOW_FULLSCREEN_DESKTOP; }
+ else{ wndflags |= SDL_WINDOW_RESIZABLE; }
+
+ renflags = SDL_RENDERER_ACCELERATED;
+ if ((flags & GUICORE_NOVSYNC) == 0U){ renflags |= SDL_RENDERER_PRESENTVSYNC; }
+
+#endif
+
+ switch (flags & (GUICORE_SMALL | GUICORE_GAMEONLY)){
+  case 0U:
+   wndw = WND_W;   wndh = WND_H;   break;
+  case GUICORE_SMALL:
+   wndw = WNDS_W;  wndh = WNDS_H;  break;
+  case GUICORE_GAMEONLY:
+   wndw = WNDG_W;  wndh = WNDG_H;  break;
+  default:
+   wndw = WNDSG_W; wndh = WNDSG_H; break;
+ }
+
+ /* Check whether initializing or doing a partial reinit. */
+
+ if ((guicore_flags & GUICORE_INIT) == 0U){ /* If it wasn't initialized yet, init */
+
+#ifdef __EMSCRIPTEN__
+
+  EM_ASM(
+   SDL.defaults.copyOnLock = false;
+   SDL.defaults.discardOnLock = true;
+   SDL.defaults.opaqueFrontBuffer = false;
+  );
+
+#endif
+
+  if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0){
+   fprintf(stderr, guicore_sdlerr, SDL_GetError());
+   goto fail_n;
+  }
+
+ }else{ /* Already initialized */
+
+#ifdef USE_SDL1
+
+#else
+
+ SDL_DestroyTexture(guicore_texture);
+ SDL_DestroyRenderer(guicore_renderer);
+ SDL_DestroyWindow(guicore_window);
+
+#endif
+
+ }
+
+ /* Perform initializations */
+
+#ifdef USE_SDL1
+
+ guicore_surface = SDL_SetVideoMode(wndw, wndh, 32U, SDL_HWSURFACE);
  if (guicore_surface == NULL){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
   goto fail_qt;
@@ -158,41 +238,44 @@ boole guicore_init(auint flags, const char* title)
   guicore_palette[i] = SDL_MapRGB(guicore_surface->format, r, g, b);
  }
 
+ guicore_amask = guicore_surface->format->Amask;
+
 #else
 
  guicore_window = SDL_CreateWindow(
      title,
      SDL_WINDOWPOS_CENTERED,
      SDL_WINDOWPOS_CENTERED,
-     640U,
-     560U,
-     SDL_WINDOW_RESIZABLE);
+     wndw,
+     wndh,
+     wndflags);
  if (guicore_window == NULL){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
   goto fail_qt;
  }
+ SDL_SetWindowMinimumSize(guicore_window, wndw, wndh);
 
  guicore_renderer = SDL_CreateRenderer(
      guicore_window,
      -1,
-     SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+     renflags);
  if (guicore_renderer == NULL){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
   goto fail_wnd;
  }
 
  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
- if (SDL_RenderSetLogicalSize(guicore_renderer, 640U, 560U) != 0U){
+ if (SDL_RenderSetLogicalSize(guicore_renderer, wndw, wndh) != 0U){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
   goto fail_ren;
  }
 
  guicore_texture = SDL_CreateTexture(
      guicore_renderer,
-     SDL_PIXELFORMAT_RGBX8888,
+     SDL_PIXELFORMAT_RGBX8888, /* Note: If necessary, would also work with RGBA8888 */
      SDL_TEXTUREACCESS_STREAMING,
-     640U,
-     560U);
+     wndw,
+     wndh);
  if (guicore_texture == NULL){
   fprintf(stderr, guicore_sdlerr, SDL_GetError());
   goto fail_ren;
@@ -208,8 +291,11 @@ boole guicore_init(auint flags, const char* title)
   guicore_palette[i] = (r << 24) | (g << 16) | (b << 8) | 0xFFU;
  }
 
+ guicore_amask = 0x000000FFU;
+
 #endif
 
+ guicore_flags = flags | GUICORE_INIT;
  return TRUE;
 
 #ifdef USE_SDL1
@@ -226,6 +312,7 @@ fail_wnd:
 fail_qt:
  SDL_Quit();
 fail_n:
+ guicore_flags = 0U;
  return FALSE;
 }
 
@@ -236,17 +323,33 @@ fail_n:
 */
 void  guicore_quit(void)
 {
+ if ((guicore_flags & GUICORE_INIT) != 0U){
+
 #ifdef USE_SDL1
 
 #else
 
- SDL_DestroyTexture(guicore_texture);
- SDL_DestroyRenderer(guicore_renderer);
- SDL_DestroyWindow(guicore_window);
+  SDL_DestroyTexture(guicore_texture);
+  SDL_DestroyRenderer(guicore_renderer);
+  SDL_DestroyWindow(guicore_window);
 
 #endif
 
- SDL_Quit();
+  SDL_Quit();
+
+ }
+
+ guicore_flags = 0U;
+}
+
+
+
+/*
+** Gets current GUI flags.
+*/
+auint guicore_getflags(void)
+{
+ return guicore_flags;
 }
 
 
@@ -302,31 +405,76 @@ void guicore_update(boole drop)
 {
 #ifdef USE_SDL1
 
+ auint   wndw;
+ auint   wndh;
+ auint   offx;
+ auint   offy;
+
  if (drop){ return; }
 
+ if ((guicore_flags & GUICORE_GAMEONLY) != 0U){
+  wndw = WNDSG_W;
+  wndh = WNDSG_H;
+  offx = TGOG_X;
+  offy = TGOG_Y;
+ }else{
+  wndw = WNDS_W;
+  wndh = WNDS_H;
+  offx = 0U;
+  offy = 0U;
+ }
+
  if (SDL_LockSurface(guicore_surface) == 0){
-  guicore_render_2x(
-      guicore_surface->pixels, (guicore_surface->pitch) >> 2,
-      0U, 0U,
-      0U, 0U,
-      320U, 270U);
+  if ((guicore_flags & GUICORE_SMALL) != 0U){
+   guicore_render_1x(
+       guicore_surface->pixels, (guicore_surface->pitch) >> 2,
+       offx, offy,
+       wndw, wndh);
+  }else{
+   guicore_render_2x(
+       guicore_surface->pixels, (guicore_surface->pitch) >> 2,
+       offx, offy,
+       wndw, wndh);
+  }
   SDL_UnlockSurface(guicore_surface);
  }
  SDL_UpdateRect(guicore_surface, 0, 0, 0, 0);
 
 #else
 
+ auint   wndw;
+ auint   wndh;
+ auint   offx;
+ auint   offy;
  void*   pixels;
  int     pitch;
 
  if (drop){ return; }
 
+ if ((guicore_flags & GUICORE_GAMEONLY) != 0U){
+  wndw = WNDSG_W;
+  wndh = WNDSG_H;
+  offx = TGOG_X;
+  offy = TGOG_Y;
+ }else{
+  wndw = WNDS_W;
+  wndh = WNDS_H;
+  offx = 0U;
+  offy = 0U;
+ }
+
  if (SDL_LockTexture(guicore_texture, NULL, &pixels, &pitch) == 0){
-  guicore_render_2x(
-      pixels, pitch >> 2,
-      0U, 0U,
-      0U, 0U,
-      320U, 270U);
+  if ((guicore_flags & GUICORE_SMALL) != 0U){
+   guicore_render_1x(
+       pixels, pitch >> 2,
+       offx, offy,
+       wndw, wndh);
+  }else{
+   guicore_render_2x(
+       pixels, pitch >> 2,
+       offx, offy,
+       wndw, wndh);
+  }
   SDL_UnlockTexture(guicore_texture);
  }
 
