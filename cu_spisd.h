@@ -43,11 +43,21 @@ typedef struct{
  auint next;     /* Next event's cycle. Actual interpretation depends on state. */
  auint recvc;    /* Last receive's cycle, used to determine bus speed where necessary */
  auint evcnt;    /* Event counter, used when a transition needs a certain number of events */
- auint cmd;      /* Command state machine */
- auint carg;     /* Last received command argument */
- auint data;     /* Data waiting to get on the output */
+ auint cmd;      /* Command / Response state machine */
+ auint crarg;    /* Command / Response argument */
+ auint r1;       /* Command response (R1) (8 bits)*/
+ auint data;     /* Data waiting to get on the output (8 bits) */
 }cu_state_spisd_t;
 
+
+/* R1 Response flags */
+#define CU_SPISD_R1_IDLE   0x01U
+#define CU_SPISD_R1_ERES   0x02U
+#define CU_SPISD_R1_ILL    0x04U
+#define CU_SPISD_R1_CRC    0x08U
+#define CU_SPISD_R1_ESEQ   0x10U
+#define CU_SPISD_R1_ADDR   0x20U
+#define CU_SPISD_R1_PAR    0x40U
 
 
 /*
