@@ -39,7 +39,7 @@
 #define WND_H    560U
 /* Window dimensions, single scan */
 #define WNDS_W   320U
-#define WNDS_H   270U
+#define WNDS_H   280U
 /* Window dimensions, double scan, game only */
 #define WNDG_W   620U
 #define WNDG_H   456U
@@ -158,6 +158,7 @@ boole guicore_init(auint flags, const char* title)
 #ifndef USE_SDL1
  auint renflags;
  auint wndflags;
+ boole wndnew = TRUE;
 #endif
  auint wndw;
  auint wndh;
@@ -214,8 +215,14 @@ boole guicore_init(auint flags, const char* title)
 #else
 
  SDL_DestroyTexture(guicore_texture);
- SDL_DestroyRenderer(guicore_renderer);
- SDL_DestroyWindow(guicore_window);
+ if (((guicore_flags ^ flags) & ~(GUICORE_INIT |
+                                  GUICORE_SMALL |
+                                  GUICORE_GAMEONLY)) != 0U){
+  SDL_DestroyRenderer(guicore_renderer);
+  SDL_DestroyWindow(guicore_window);
+ }else{
+  wndnew = FALSE; /* Don't need to create and init new window */
+ }
 
 #endif
 
@@ -242,26 +249,30 @@ boole guicore_init(auint flags, const char* title)
 
 #else
 
- guicore_window = SDL_CreateWindow(
-     title,
-     SDL_WINDOWPOS_CENTERED,
-     SDL_WINDOWPOS_CENTERED,
-     wndw,
-     wndh,
-     wndflags);
- if (guicore_window == NULL){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
-  goto fail_qt;
- }
- SDL_SetWindowMinimumSize(guicore_window, wndw, wndh);
+ if (wndnew){
 
- guicore_renderer = SDL_CreateRenderer(
-     guicore_window,
-     -1,
-     renflags);
- if (guicore_renderer == NULL){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
-  goto fail_wnd;
+  guicore_window = SDL_CreateWindow(
+      title,
+      SDL_WINDOWPOS_CENTERED,
+      SDL_WINDOWPOS_CENTERED,
+      wndw,
+      wndh,
+      wndflags);
+  if (guicore_window == NULL){
+   fprintf(stderr, guicore_sdlerr, SDL_GetError());
+   goto fail_qt;
+  }
+  SDL_SetWindowMinimumSize(guicore_window, wndw, wndh);
+
+  guicore_renderer = SDL_CreateRenderer(
+      guicore_window,
+      -1,
+      renflags);
+  if (guicore_renderer == NULL){
+   fprintf(stderr, guicore_sdlerr, SDL_GetError());
+   goto fail_wnd;
+  }
+
  }
 
  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -281,8 +292,10 @@ boole guicore_init(auint flags, const char* title)
   goto fail_ren;
  }
 
- SDL_RenderClear(guicore_renderer);
- SDL_RenderPresent(guicore_renderer);
+ if (wndnew){
+  SDL_RenderClear(guicore_renderer);
+  SDL_RenderPresent(guicore_renderer);
+ }
 
  for (i = 0U; i < 256U; i++){
   r = (((i >> 0) & 7U) * 255U) / 7U;
