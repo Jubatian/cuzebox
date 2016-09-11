@@ -553,6 +553,8 @@ static void  cu_avr_write_io(auint port, auint val)
 {
  auint pval = cpu_state.iors[port]; /* Previous value */
  auint cval = val & 0xFFU;          /* Current (requested) value */
+ auint pio;
+ auint cio;
  auint t0;
  auint t1;
 
@@ -561,22 +563,36 @@ static void  cu_avr_write_io(auint port, auint val)
  switch (port){
 
   case CU_IO_PORTA:   /* Controller inputs, SPI RAM Chip Select */
+  case CU_IO_DDRA:
 
-   cval &= cpu_state.iors[CU_IO_DDRA];
-   cpu_state.iors[CU_IO_PINA] = cu_ctr_process(pval, cval);
-   cu_spi_cs_set(CU_SPI_CS_RAM, (cval & 0x10U) == 0U, cpu_state.cycle);
+   if (port == CU_IO_PORTA){
+    pio = pval & cpu_state.iors[CU_IO_DDRA];
+    cio = cval & cpu_state.iors[CU_IO_DDRA];
+   }else{
+    pio = pval & cpu_state.iors[CU_IO_PORTA];
+    cio = cval & cpu_state.iors[CU_IO_PORTA];
+   }
+   cpu_state.iors[CU_IO_PINA] = cu_ctr_process(pio, cio);
+   cu_spi_cs_set(CU_SPI_CS_RAM, (cio & 0x10U) == 0U, cpu_state.cycle);
    break;
 
   case CU_IO_PORTB:   /* Sync output */
+  case CU_IO_DDRB:
 
-   cval &= cpu_state.iors[CU_IO_DDRB];
+   if (port == CU_IO_PORTB){
+    pio = pval & cpu_state.iors[CU_IO_DDRB];
+    cio = cval & cpu_state.iors[CU_IO_DDRB];
+   }else{
+    pio = pval & cpu_state.iors[CU_IO_PORTB];
+    cio = cval & cpu_state.iors[CU_IO_PORTB];
+   }
 
-   if (((pval ^ cval) & 1U) != 0U){   /* Sync edge */
+   if (((pio ^ cio) & 1U) != 0U){   /* Sync edge */
 
     t0 = WRAP32(cpu_state.cycle - video_pedge); /* Cycles elapsed since previous edge */
     video_pedge = cpu_state.cycle;
 
-    if ((cval & 1U) == 1U){      /* Rising edge */
+    if ((cio & 1U) == 1U){      /* Rising edge */
 
      if ( (video_pulsectr <= 268U) &&
           (video_pulsectr != 251U) ){
@@ -684,13 +700,21 @@ static void  cu_avr_write_io(auint port, auint val)
 
   case CU_IO_PORTC:   /* Pixel output */
 
+   /* Special shortcut masking with the DDR register. This port tolerates a
+   ** bit of inaccuracy since it is only graphics and is most frequently
+   ** written "normally" (the DDR is used for fade effects on it) */
    cval &= cpu_state.iors[CU_IO_DDRC];
    break;
 
   case CU_IO_PORTD:   /* SD card Chip Select */
+  case CU_IO_DDRD:
 
-   cval &= cpu_state.iors[CU_IO_DDRD];
-   cu_spi_cs_set(CU_SPI_CS_SD, (cval & 0x40U) == 0U, cpu_state.cycle);
+   if (port == CU_IO_PORTD){
+    cio = cval & cpu_state.iors[CU_IO_DDRD];
+   }else{
+    cio = cval & cpu_state.iors[CU_IO_PORTD];
+   }
+   cu_spi_cs_set(CU_SPI_CS_SD, (cio & 0x40U) == 0U, cpu_state.cycle);
    break;
 
   case CU_IO_OCR2A:   /* PWM audio output */
@@ -729,6 +753,9 @@ static void  cu_avr_write_io(auint port, auint val)
 
   case CU_IO_SPDR:    /* SPI data */
 
+   cpu_state.iors[CU_IO_SPSR] &= ~0x80U;
+   /* Note: By the doc first a read would be necessary for clearing SPIF here,
+   ** but that's a very unusual use case, so ignored */
    if ((cpu_state.iors[CU_IO_SPCR] & 0x40U) != 0U){ /* SPI enabled */
     if (cpu_state.spi_tran){                /* Already sending */
      cpu_state.iors[CU_IO_SPSR] |= 0x40U;   /* Signal write collision */

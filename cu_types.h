@@ -214,14 +214,6 @@ typedef struct{
 #define CU_IO_UDR0    0xC6U
 
 
-/*
-** Emulator state structure
-*/
-typedef struct{
- cu_state_cpu_t cpu;
-}cu_state_t;
-
-
 /* Return flag: Row completed. The row should be fetched for render. */
 #define CU_GET_ROW    0x01U
 

@@ -28,6 +28,7 @@
 
 
 #include "cu_spi.h"
+#include "cu_spisd.h"
 
 
 
@@ -37,6 +38,7 @@
 */
 void  cu_spi_reset(auint cycle)
 {
+ cu_spisd_reset(cycle);
 }
 
 
@@ -46,6 +48,15 @@ void  cu_spi_reset(auint cycle)
 */
 void  cu_spi_cs_set(auint id, boole ena, auint cycle)
 {
+ switch (id){
+
+  case CU_SPI_CS_SD:
+   cu_spisd_cs_set(ena, cycle);
+   break;
+
+  default:
+   break;
+ }
 }
 
 
@@ -56,6 +67,7 @@ void  cu_spi_cs_set(auint id, boole ena, auint cycle)
 */
 void  cu_spi_send(auint data, auint cycle)
 {
+ cu_spisd_send(data, cycle);
 }
 
 
@@ -66,5 +78,9 @@ void  cu_spi_send(auint data, auint cycle)
 */
 auint cu_spi_recv(auint cycle)
 {
- return 0x00U;
+ auint ret = 0xFFU;
+
+ ret &= cu_spisd_recv(cycle);
+
+ return ret;
 }
