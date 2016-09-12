@@ -28,6 +28,7 @@
 
 
 #include "cu_spisd.h"
+#include "cu_vfat.h"
 
 
 
@@ -119,6 +120,8 @@ void  cu_spisd_reset(auint cycle)
  sd_state.r1    = 0U;
  sd_state.data  = 0xFFU;
  sd_state.pstat = PSTAT_IDLE;
+
+ cu_vfat_reset();
 }
 
 
@@ -171,8 +174,7 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case PSTAT_RDATA:
-   /* Request data from sd_state.paddr sector, sd_state.ppos byte */
-   sd_state.data  = 0x00U; /* Temporary SD card data */
+   sd_state.data  = cu_vfat_read((sd_state.paddr << 9) + sd_state.ppos);
    sd_state.ppos  ++;
    if (sd_state.ppos == 512U){
     sd_state.pstat = PSTAT_RCRC;
