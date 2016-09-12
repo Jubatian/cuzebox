@@ -50,6 +50,9 @@ static cu_state_spisd_t sd_state;
 /* Command response time (bytes, should be 0 - 8) */
 #define CMD_N     2U
 
+/* Data preparation time for reads (bytes, arbitrary) */
+#define READ_P_N  3U
+
 
 /* SD card state machine states */
 /* Uninitialized: waiting for CS and DI going high */
@@ -66,6 +69,10 @@ static cu_state_spisd_t sd_state;
 #define STAT_IINIT      5U
 /* Available for data transfer */
 #define STAT_AVAIL      6U
+/* Read single block */
+#define STAT_CMD17      7U
+/* Read multiple blocks */
+#define STAT_CMD18      8U
 
 /* Command state machine. The low 6 bits hold the command */
 /* Receiving flag: If set, a command is under reception */
@@ -76,6 +83,25 @@ static cu_state_spisd_t sd_state;
 #define SCMD_N      0x200U
 /* Ticking out extra response bytes (beyond the R1) */
 #define SCMD_X      0x400U
+
+/* R1 Response flags */
+#define R1_IDLE      0x01U
+#define R1_ERES      0x02U
+#define R1_ILL       0x04U
+#define R1_CRC       0x08U
+#define R1_ESEQ      0x10U
+#define R1_ADDR      0x20U
+#define R1_PAR       0x40U
+
+/* Data transmission state machine */
+/* Idle */
+#define PSTAT_IDLE      0U
+/* Read data preparation & data token */
+#define PSTAT_RPREP     1U
+/* Read data bytes (512) */
+#define PSTAT_RDATA     2U
+/* Read CRC bytes (2) */
+#define PSTAT_RCRC      3U
 
 
 
@@ -95,6 +121,7 @@ void  cu_spisd_reset(auint cycle)
  sd_state.crarg = 0U;
  sd_state.r1    = 0U;
  sd_state.data  = 0xFFU;
+ sd_state.pstat = PSTAT_IDLE;
 }
 
 
@@ -108,6 +135,7 @@ void  cu_spisd_cs_set(boole ena, auint cycle)
       ((!sd_state.ena) && ena) ){
   sd_state.ena  = ena;
   sd_state.enac = cycle;
+  if (sd_state.ena == FALSE){ sd_state.cmd = 0U; } /* Kill any command if CS goes away */
  }
 /* printf("%08X; CS: %u\n", cycle, (auint)(ena));
 */
@@ -123,19 +151,16 @@ void  cu_spisd_send(auint data, auint cycle)
 {
  boole atcrc = FALSE;   /* Mark that data contains the CRC of a parsed command */
  boole atend = FALSE;   /* Mark that a command ended, need to form a response */
- boole appcm = FALSE;   /* Mark that an application command is being received */
- auint cmd   = sd_state.cmd;
+ auint cmd   = sd_state.cmd; /* Save for command processing */
 
  sd_state.data = 0xFFU; /* Default data out */
 
  /* Generic SD command processing */
 
- if ( (sd_state.state != STAT_UNINIT) &&
-      (sd_state.state != STAT_NINIT) ){
+ if (sd_state.ena){
 
-  if (sd_state.ena){
-
-   if ((sd_state.cmd & SCMD_A) != 0U){ appcm = TRUE; }
+  if ( (sd_state.state != STAT_UNINIT) &&
+       (sd_state.state != STAT_NINIT) ){
 
    if       ((sd_state.cmd & SCMD_X) != 0U){ /* Returning extra response bytes */
 
@@ -187,12 +212,53 @@ void  cu_spisd_send(auint data, auint cycle)
 
  }
 
+ /* Data transmission state machine */
+
+ switch (sd_state.pstat){
+
+  case PSTAT_IDLE:
+   break;
+
+  case PSTAT_RPREP:
+   if (sd_state.ppos >= READ_P_N){
+    sd_state.data  = 0xFEU; /* Read data token */
+    sd_state.pstat = PSTAT_RDATA;
+    sd_state.ppos  = 0U;
+   }else{
+    sd_state.ppos  ++;
+   }
+   break;
+
+  case PSTAT_RDATA:
+   /* Request data from sd_state.paddr sector, sd_state.ppos byte */
+   sd_state.data  = 0x00U; /* Temporary SD card data */
+   sd_state.ppos  ++;
+   if (sd_state.ppos == 512U){
+    sd_state.pstat = PSTAT_RCRC;
+    sd_state.ppos  = 0U;
+   }
+   break;
+
+  case PSTAT_RCRC:
+   sd_state.data  = 0x00U; /* SD CRC is currently unsupported */
+   sd_state.ppos  ++;
+   if (sd_state.ppos == 2U){
+    sd_state.pstat = PSTAT_IDLE;
+   }
+   break;
+
+  default:
+   break;
+
+ }
+
  /* SD state machine */
 
  switch (sd_state.state){
 
   case STAT_UNINIT:        /* Uninitialized: Waiting for CS high and Data high */
 
+   sd_state.pstat = PSTAT_IDLE;
    if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
         (WRAP32(cycle - sd_state.recvc) <= SPI_100) && /* SPI timing constraint OK */
         (data == 0xFFU) &&                             /* Data high satisfied */
@@ -206,6 +272,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case STAT_NINIT:         /* Wait for init pulses */
 
+   sd_state.pstat = PSTAT_IDLE;
    if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
         (WRAP32(cycle - sd_state.recvc) <= SPI_100) && /* SPI timing constraint OK */
         (data == 0xFFU) &&                             /* Data high satisfied */
@@ -222,18 +289,19 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case STAT_NATIVE:        /* Native mode: Waiting for a CMD0 */
 
+   sd_state.pstat = PSTAT_IDLE;
    if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
         (WRAP32(cycle - sd_state.recvc) <= SPI_100) ){ /* SPI timing constraint OK */
     if (atcrc){
      if ( ((cmd & 0x3FU) != 0U) ||
           (sd_state.crarg != 0U) ||
           (data != 0x95U) ){
-      sd_state.r1 |= CU_SPISD_R1_ILL; /* Not a valid CMD0 */
+      sd_state.r1 |= R1_ILL; /* Not a valid CMD0 */
      }
     }
     if (atend){
      if (sd_state.r1 == 0U){
-      sd_state.r1   |= CU_SPISD_R1_IDLE;
+      sd_state.r1   |= R1_IDLE;
       sd_state.data  = sd_state.r1;
       sd_state.state = STAT_IDLE;
      }
@@ -244,6 +312,7 @@ void  cu_spisd_send(auint data, auint cycle)
   case STAT_IDLE:          /* Idle state, waiting for some initialization */
   case STAT_VERIFIED:      /* Verified state, same */
 
+   sd_state.pstat = PSTAT_IDLE;
    if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
         (WRAP32(cycle - sd_state.recvc) <= SPI_100) ){ /* SPI timing constraint OK */
     /* Here the SD card should accept the followings:
@@ -258,7 +327,7 @@ void  cu_spisd_send(auint data, auint cycle)
          ((cmd & (0x3FU | SCMD_A)) == 8U) &&
          (data != 0x87U) &&
          (sd_state.crarg != 0x000001AAU) ){
-     sd_state.r1 |= CU_SPISD_R1_CRC;
+     sd_state.r1 |= R1_CRC;
     }
     if (atend){
      switch (cmd & (0x3FU | SCMD_A)){
@@ -294,16 +363,16 @@ void  cu_spisd_send(auint data, auint cycle)
         sd_state.state = STAT_IINIT;
         sd_state.next  = SPI_1MS * 1000U;
        }else{
-        sd_state.r1 |= CU_SPISD_R1_ILL;
+        sd_state.r1 |= R1_ILL;
        }
        break;
 
       default:  /* Other commands are not supported in idle state */
-       sd_state.r1 |= CU_SPISD_R1_ILL;
+       sd_state.r1 |= R1_ILL;
        break;
      }
 
-     sd_state.r1 |= CU_SPISD_R1_IDLE;
+     sd_state.r1   |= R1_IDLE;
      sd_state.data  = sd_state.r1;
     }
    }
@@ -311,6 +380,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case STAT_IINIT:         /* Initializing */
 
+   sd_state.pstat = PSTAT_IDLE;
    if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
         (WRAP32(cycle - sd_state.recvc) <= SPI_100) ){ /* SPI timing constraint OK */
     /* Here the SD card should accept the followings:
@@ -323,7 +393,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
       case  0U: /* Go idle state */
        sd_state.state = STAT_IDLE;
-       sd_state.r1 |= CU_SPISD_R1_IDLE;
+       sd_state.r1 |= R1_IDLE;
        break;
 
       case  1U: /* Initiate initialization */
@@ -331,13 +401,13 @@ void  cu_spisd_send(auint data, auint cycle)
        if (WRAP32(sd_state.next - cycle) > 0x80000000U){ /* Initialized */
         sd_state.state = STAT_AVAIL;
        }else{
-        sd_state.r1 |= CU_SPISD_R1_IDLE;
+        sd_state.r1 |= R1_IDLE;
        }
        break;
 
       default:  /* Other commands are not supported during init */
-       sd_state.r1 |= CU_SPISD_R1_ILL;
-       sd_state.r1 |= CU_SPISD_R1_IDLE;
+       sd_state.r1 |= R1_ILL;
+       sd_state.r1 |= R1_IDLE;
        break;
      }
      sd_state.data  = sd_state.r1;
@@ -345,14 +415,102 @@ void  cu_spisd_send(auint data, auint cycle)
    }
    break;
 
-  default:
+  case STAT_AVAIL:         /* Available for data transfer (at any SPI rate) */
+   /* Here the SD card should accept the followings (at least... to function
+   ** as an useful card):
+   ** CMD0  (Go idle state - for re-initializing)
+   ** CMD16 (Set block length, just accept it and ignore, 512 is the only sensible value)
+   ** CMD17 (Read single block)
+   ** CMD18 (Read multiple blocks)
+   ** CMD24 (Write block)
+   ** CMD25 (Write multiple blocks)
+   ** CMD58 (Read OCR - some init methods might do it here to get card type)
+   ** CMD59 (Toggle CRC, ignored)
+   ** ACMD23 (Blocks to pre-erase, just accept and ignore)
+   */
+   if (atend){
+    switch (cmd & (0x3FU | SCMD_A)){
 
+     case  0U: /* Go idle state */
+      sd_state.state = STAT_IDLE;
+      sd_state.r1 |= R1_IDLE;
+      break;
+
+     case 16U: /* Set block length */
+      break;   /* Accept but ignore (assuming it is just used to set 512 bytes) */
+
+     case 17U: /* Read single block */
+      sd_state.state = STAT_CMD17;
+      sd_state.ppos  = 0U;
+      sd_state.pstat = PSTAT_RPREP;
+      sd_state.paddr = sd_state.crarg >> 9; /* SDSC card, byte argument */
+      break;
+
+     case 18U: /* Read multiple blocks */
+      sd_state.state = STAT_CMD18;
+      sd_state.ppos  = 0U;
+      sd_state.pstat = PSTAT_RPREP;
+      sd_state.paddr = sd_state.crarg >> 9; /* SDSC card, byte argument */
+      break;
+
+     case 24U: /* Write block */
+      break;
+
+     case 25U: /* Write multiple blocks */
+      break;
+
+     case 58U: /* Read OCR */
+      sd_state.crarg = 0x80FF0000U; /* Report as an SDSC card */
+      sd_state.cmd   = SCMD_X;
+      break;
+
+     case 59U: /* Toggle CRC checks */
+      break;   /* Not supported, just pretend it works */
+
+     case (23U | SCMD_A): /* Blocks to pre-erase */
+      break;   /* Accept but ignore (pre-erased blocks would have undefined state anyway) */
+
+     default:
+      sd_state.r1 |= R1_ILL;
+      break;
+    }
+    sd_state.data  = sd_state.r1;
+   }
+   break;
+
+  case STAT_CMD17:         /* CMD17: Read single block */
+   /* No command is accepted, just waits block's end */
+   if (sd_state.pstat == PSTAT_IDLE){
+    sd_state.state = STAT_AVAIL;
+   }
+   break;
+
+  case STAT_CMD18:         /* CMD18: Read multiple blocks */
+   /* A CMD12 will terminate an infinite read */
+   if (sd_state.pstat == PSTAT_IDLE){
+    sd_state.ppos  = 0U;
+    sd_state.pstat = PSTAT_RPREP;
+    sd_state.paddr = (sd_state.paddr + 1U) & 0x007FFFFFU; /* Still an SDSC card... */
+   }
+   if (atend){
+    if ((cmd & (0x3FU | SCMD_A)) == 12U){ /* Stop transmission */
+     sd_state.state = STAT_AVAIL;
+     sd_state.pstat = PSTAT_IDLE;
+     sd_state.data  = sd_state.r1;
+     sd_state.crarg = 0x00000000U; /* Generate 4 busy bytes (a bit of hack to get a "complete" R1b) */
+     sd_state.cmd   = SCMD_X;
+    }
+   }
+   break;
+
+  default:                 /* State machine error, shouldn't happen */
+   sd_state.state = STAT_UNINIT;
    break;
 
  }
 
-/* printf("%08X (r: %08X); SD Send: Ena: %u, Byte: %02X, Stat: %u, Cmd: %03X\n",
-**     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.state, sd_state.cmd);
+/* printf("%08X (r: %08X); SD Send: Ena: %u, Byte: %02X, Stat: %u, Cmd: %03X, PPos: %3u\n",
+**     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.state, sd_state.cmd, sd_state.ppos);
 */
 }
 

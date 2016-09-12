@@ -47,17 +47,10 @@ typedef struct{
  auint crarg;    /* Command / Response argument */
  auint r1;       /* Command response (R1) (8 bits)*/
  auint data;     /* Data waiting to get on the output (8 bits) */
+ auint pstat;    /* Packet transmission state machine */
+ auint paddr;    /* Packet sector (512 byte units) address */
+ auint ppos;     /* Packet transmission byte position */
 }cu_state_spisd_t;
-
-
-/* R1 Response flags */
-#define CU_SPISD_R1_IDLE   0x01U
-#define CU_SPISD_R1_ERES   0x02U
-#define CU_SPISD_R1_ILL    0x04U
-#define CU_SPISD_R1_CRC    0x08U
-#define CU_SPISD_R1_ESEQ   0x10U
-#define CU_SPISD_R1_ADDR   0x20U
-#define CU_SPISD_R1_PAR    0x40U
 
 
 /*
