@@ -245,7 +245,7 @@ static void main_loop(void)
   if (main_fdrop != 0U){ favg = favg / 2U; }
 
   ccur       = cu_avr_getcycle();
-  cdif       = (ccur - main_t5_cc) & 0xFFFFFFFFU;
+  cdif       = WRAP32(ccur - main_t5_cc);
   main_t5_cc = ccur;
 
   snprintf(

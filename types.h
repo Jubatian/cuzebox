@@ -45,6 +45,15 @@
 
 
 
+/* Macro for enforcing 32 bit wrapping math (does nothing if auint is 32 bits)
+** This is used for manipulating values which are meant to be stored in 32
+** bits (such as in an emulator state), so 64 bit unsigned variables wouldn't
+** work with them. Correct usage may be tested by reducing it to 24 bits,
+** enforcing wraps about twice a second (used on the cycle counter). */
+#define WRAP32(x) ((x) & 0xFFFFFFFFU)
+
+
+
 typedef   signed  int   asint;  /* Architecture signed integer (At least 2^31) */
 typedef unsigned  int   auint;  /* Architecture unsigned integer (At least 2^31) */
 typedef  int16_t        sint16;

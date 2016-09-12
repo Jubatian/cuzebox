@@ -36,9 +36,6 @@ static cu_state_spisd_t sd_state;
 
 
 
-/* Macro for enforcing 32 bit wrapping math (does nothing if auint is 32 bits) */
-#define WRAP32(x) ((x) & 0xFFFFFFFFU)
-
 /* 400KHz SPI transfer clocks */
 #define SPI_400   ( 71U * 8U)
 /* 100KHz SPI transfer clocks */
@@ -155,64 +152,8 @@ void  cu_spisd_send(auint data, auint cycle)
 
  sd_state.data = 0xFFU; /* Default data out */
 
- /* Generic SD command processing */
-
- if (sd_state.ena){
-
-  if ( (sd_state.state != STAT_UNINIT) &&
-       (sd_state.state != STAT_NINIT) ){
-
-   if       ((sd_state.cmd & SCMD_X) != 0U){ /* Returning extra response bytes */
-
-    if (sd_state.evcnt < 4U){ /* Data bytes */
-     sd_state.data = (sd_state.crarg >> ((3U - sd_state.evcnt) * 8U)) & 0xFFU;
-     sd_state.evcnt ++;
-    }else{                    /* End of response */
-     sd_state.cmd = 0U;
-    }
-
-   }else if ((sd_state.cmd & SCMD_R) == 0U){ /* Waiting for command */
-
-    if ((data & 0xC0U) == 0x40U){            /* Valid command byte */
-     sd_state.cmd = (sd_state.cmd & (~(0xFFU | SCMD_N))) |
-                    (data & 0x3FU) |         /* Receiving */
-                    SCMD_R;                  /* (while retaining SCMD_A if it was there) */
-     sd_state.crarg = 0U;
-     sd_state.evcnt = 0U;
-     sd_state.r1    = 0U;
-    }
-
-   }else if ((sd_state.cmd & SCMD_N) == 0U){ /* Processing command */
-
-    if (sd_state.evcnt < 4U){ /* Data bytes */
-     sd_state.crarg |= data << ((3U - sd_state.evcnt) * 8U);
-     sd_state.evcnt ++;
-    }else{                    /* CRC byte */
-     sd_state.cmd |= SCMD_N;
-     sd_state.evcnt = 0U;
-     atcrc = TRUE;
-    }
-
-   }else{                                    /* Command response waits */
-
-    if (sd_state.evcnt >= CMD_N){
-     if ((sd_state.cmd & 0x3FU) == 55U){ /* App. command */
-      sd_state.cmd = SCMD_A;  /* No command end mark since this will be an app. command */
-     }else{
-      sd_state.cmd = 0U;
-      atend = TRUE;
-     }
-    }else{
-     sd_state.evcnt ++;
-    }
-
-   }
-
-  }
-
- }
-
- /* Data transmission state machine */
+ /* Data transmission state machine (lowest priority in determining output
+ ** data bytes) */
 
  switch (sd_state.pstat){
 
@@ -249,6 +190,65 @@ void  cu_spisd_send(auint data, auint cycle)
 
   default:
    break;
+
+ }
+
+ /* Generic SD command processing */
+
+ if (sd_state.ena){
+
+  if ( (sd_state.state != STAT_UNINIT) &&
+       (sd_state.state != STAT_NINIT) ){
+
+   if       ((sd_state.cmd & SCMD_X) != 0U){ /* Returning extra response bytes */
+
+    if (sd_state.evcnt < 4U){ /* Data bytes */
+     sd_state.data = (sd_state.crarg >> ((3U - sd_state.evcnt) * 8U)) & 0xFFU;
+     sd_state.evcnt ++;
+    }else{                    /* End of response */
+     sd_state.cmd = 0U;
+    }
+
+   }else if ((sd_state.cmd & SCMD_R) == 0U){ /* Waiting for command */
+
+    if ((data & 0xC0U) == 0x40U){            /* Valid command byte */
+     sd_state.cmd = (sd_state.cmd & (~(0xFFU | SCMD_N))) |
+                    (data & 0x3FU) |         /* Receiving */
+                    SCMD_R;                  /* (while retaining SCMD_A if it was there) */
+     sd_state.crarg = 0U;
+     sd_state.evcnt = 0U;
+     sd_state.r1    = 0U;
+    }
+
+   }else if ((sd_state.cmd & SCMD_N) == 0U){ /* Processing command */
+
+    if (sd_state.evcnt < 4U){ /* Data bytes */
+     sd_state.crarg |= data << ((3U - sd_state.evcnt) * 8U);
+     sd_state.evcnt ++;
+    }else{                    /* CRC byte */
+     sd_state.cmd  |= SCMD_N;
+     sd_state.evcnt = 0U;
+     atcrc = TRUE;
+     sd_state.data  = 0xFFU;  /* Forced stuff byte (overriding transmission data if any) */
+    }
+
+   }else{                                    /* Command response waits */
+
+    if (sd_state.evcnt >= CMD_N){
+     if ((sd_state.cmd & 0x3FU) == 55U){ /* App. command */
+      sd_state.cmd = SCMD_A;  /* No command end mark since this will be an app. command */
+     }else{
+      sd_state.cmd = 0U;
+      atend = TRUE;
+     }
+    }else{
+     sd_state.data  = 0xFFU;  /* Forced stuff byte (overriding transmission data if any) */
+     sd_state.evcnt ++;
+    }
+
+   }
+
+  }
 
  }
 
@@ -479,18 +479,16 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case STAT_CMD17:         /* CMD17: Read single block */
-   /* No command is accepted, just waits block's end */
-   if (sd_state.pstat == PSTAT_IDLE){
-    sd_state.state = STAT_AVAIL;
-   }
-   break;
-
   case STAT_CMD18:         /* CMD18: Read multiple blocks */
-   /* A CMD12 will terminate an infinite read */
+   /* Only a CMD12 might be used to terminate a read */
    if (sd_state.pstat == PSTAT_IDLE){
-    sd_state.ppos  = 0U;
-    sd_state.pstat = PSTAT_RPREP;
-    sd_state.paddr = (sd_state.paddr + 1U) & 0x007FFFFFU; /* Still an SDSC card... */
+    if (sd_state.state == STAT_CMD17){
+     sd_state.state = STAT_AVAIL;
+    }else{
+     sd_state.ppos  = 0U;
+     sd_state.pstat = PSTAT_RPREP;
+     sd_state.paddr = (sd_state.paddr + 1U) & 0x007FFFFFU; /* Still an SDSC card... */
+    }
    }
    if (atend){
     if ((cmd & (0x3FU | SCMD_A)) == 12U){ /* Stop transmission */
@@ -509,8 +507,8 @@ void  cu_spisd_send(auint data, auint cycle)
 
  }
 
-/* printf("%08X (r: %08X); SD Send: Ena: %u, Byte: %02X, Stat: %u, Cmd: %03X, PPos: %3u\n",
-**     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.state, sd_state.cmd, sd_state.ppos);
+/* printf("%08X (r: %08X); SD Send: Ena: %u, Byte: %02X, %02X, Stat: %u, Cmd: %03X, PPos: %3u\n",
+**     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.data, sd_state.state, sd_state.cmd, sd_state.ppos);
 */
 }
 

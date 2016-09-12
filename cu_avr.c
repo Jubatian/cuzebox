@@ -107,10 +107,6 @@ boole           eeprom_changed;
 #define EEPROM_EWR_TIM 50000U
 
 
-/* Macro for enforcing 32 bit wrapping math (does nothing it auint is 32 bits) */
-#define WRAP32(x) ((x) & 0xFFFFFFFFU)
-
-
 /* Flags in CU_IO_SREG */
 #define SREG_I  7U
 #define SREG_T  6U

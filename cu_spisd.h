@@ -35,7 +35,8 @@
 #include "types.h"
 
 
-/* SD card state structure */
+/* SD card state structure. This isn't really meant to be edited, but it is
+** necessary for emulator state dumps. Every value is at most 32 bits. */
 typedef struct{
  boole ena;      /* Chip select state */
  auint enac;     /* Cycle of last chip select toggle */
