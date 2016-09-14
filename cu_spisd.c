@@ -46,10 +46,10 @@ static cu_state_spisd_t sd_state;
 #define SPI_1MS   28634U
 
 /* Command response time (bytes, should be 0 - 8) */
-#define CMD_N     2U
+#define CMD_N     1U
 
 /* Data preparation time for reads (bytes, arbitrary) */
-#define READ_P_N  3U
+#define READ_P_N  2U
 
 
 /* SD card state machine states */
@@ -204,6 +204,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
    if       ((sd_state.cmd & SCMD_X) != 0U){ /* Returning extra response bytes */
 
+    sd_state.cmd = SCMD_X;    /* Just make sure only SCMD_X is present (see hack below) */
     if (sd_state.evcnt < 4U){ /* Data bytes */
      sd_state.data = (sd_state.crarg >> ((3U - sd_state.evcnt) * 8U)) & 0xFFU;
      sd_state.evcnt ++;
@@ -211,10 +212,18 @@ void  cu_spisd_send(auint data, auint cycle)
      sd_state.cmd = 0U;
     }
 
-   }else if ((sd_state.cmd & SCMD_R) == 0U){ /* Waiting for command */
+   }
+
+   /* Normally this below should be in an "else if". This is non-standard as
+   ** it allows breaking a response to interpret a new command. This bypass is
+   ** added to support Tempest which doesn't respect the R1b response, thus
+   ** allowing that game to bypass it (that game only works on such SD cards
+   ** which send very few "busy" bytes in an R1b, that is, less than 4). */
+
+   if       ((sd_state.cmd & SCMD_R) == 0U){ /* Waiting for command */
 
     if ((data & 0xC0U) == 0x40U){            /* Valid command byte */
-     sd_state.cmd = (sd_state.cmd & (~(0xFFU | SCMD_N))) |
+     sd_state.cmd = (sd_state.cmd & (~(0xFFU | SCMD_N | SCMD_X))) |
                     (data & 0x3FU) |         /* Receiving */
                     SCMD_R;                  /* (while retaining SCMD_A if it was there) */
      sd_state.crarg = 0U;

@@ -35,14 +35,23 @@
 #include "types.h"
 
 
+/* Size of Root directory. Should not be changed (this module is designed to
+** support changing it, but later the state saves might not be) */
+#define CU_VFAT_ROOT_SIZE     512U
+
 /* Size of System area in bytes */
-#define VFAT_SYS_SIZE      (0x221U * 512U)
+#define CU_VFAT_SYS_SIZE      ((0x201U * 512U) + (CU_VFAT_ROOT_SIZE * 32U))
+
+/* Size of Host filenames. Should not be changed. (this module is designed to
+** support changing it, but later the state saves might not be) */
+#define CU_VFAT_HNAME_SIZE    64U
 
 
 /* Virtual FAT16 filesystem structure */
 typedef struct{
- uint8 sys[VFAT_SYS_SIZE]; /* The system area of the file system (MBR, FATs, root dir) */
- uint8 wbuf[512U];         /* Write buffer, collecting a sector of data */
+ uint8 sys[CU_VFAT_SYS_SIZE]; /* The system area of the file system (MBR, FATs, root dir) */
+ uint8 rwbuf[512U];           /* Read / Write buffer, collecting a sector of data */
+ char  hnames[CU_VFAT_ROOT_SIZE][CU_VFAT_HNAME_SIZE]; /* Host filenames */
 }cu_state_vfat_t;
 
 
@@ -56,14 +65,18 @@ void  cu_vfat_reset(void);
 /*
 ** Reads a byte from a given byte position in the file system's (virtual) disk
 ** image. Note that a FAT16 volume is at most 2^31 bytes large (64K * 32Kbytes
-** clusters), so a 32 bit value is sufficient to address it.
+** clusters), so a 32 bit value is sufficient to address it. Reading the first
+** byte of a sector triggers buffering the sector, subsequent bytes are always
+** returned from within the buffer.
 */
 auint cu_vfat_read(auint pos);
 
 
 /*
 ** Writes a byte to the given byte position in the file system's (virtual)
-** disk image.
+** disk image. Writing the last byte of a sector triggers writing out the
+** buffered sector (so ideally a sector should be filled up as a sequence of
+** writes).
 */
 void  cu_vfat_write(auint pos, auint data);
 

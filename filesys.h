@@ -128,7 +128,8 @@ void  filesys_find_reset(void);
 ** Finds next file. Returns the found file's size and name in dest. The return
 ** is 0xFFFFFFFF on the end of the directory. It will skip any directory or
 ** file whose size is equal or larger than 0xFFFFFFFF bytes or whose name is
-** too long to fit in dest (by len).
+** too long to fit in dest (by len). The returned name is relative to the path
+** (so it has no path component, only a bare file name).
 */
 auint filesys_find_next(char* dest, auint len);
 

@@ -178,8 +178,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
      break;
 
     default:    /* Invalid for AVR programming */
-     fprintf(stderr, "%s%sInvalid record type on line %u in %s.\n", cu_id, cu_err, lpos, fname);
-     goto ex_file;
+     fprintf(stderr, "%s%sInvalid record type on line %u in %s.\n", cu_id, cu_war, lpos, fname);
      break;
 
    }

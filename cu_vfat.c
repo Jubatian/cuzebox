@@ -28,6 +28,7 @@
 
 
 #include "cu_vfat.h"
+#include "filesys.h"
 
 
 /*
@@ -37,7 +38,7 @@
 ** 0x000000   ------    0x000001    MBR
 ** 0x000001   ------    0x000100    FAT0
 ** 0x000101   ------    0x000100    FAT1
-** 0x000201   ------    0x000020    Root directory
+** 0x000201   ------    0x000020    Root directory (512 entries)
 ** 0x000221   0x0002    0x3FFB80    Data area
 ** 0x3FFDA1   0xFFF0    --------    End of disk
 **
@@ -59,6 +60,13 @@
 */
 
 
+/* Size of data area in clusters */
+#define VFAT_DATA_SIZE     0xFFEEU
+
+/* End cluster of data area + 1 */
+#define VFAT_DATA_END      (VFAT_DATA_SIZE + 2U)
+
+
 /* Master Boot Record data (Note: Records are Little Endian!).
 ** Not included are the signature bytes (0xAA, 0x55) on the end of the 512
 ** byte sector */
@@ -71,7 +79,7 @@ static const uint8 vfat_data_mbr[VFAT_DATA_MBR_SIZE] = {
  0x40U,                      /* 64 sectors / cluster */
  0x01U, 0x00U,               /* Reserved sectors (1: Boot sector) */
  0x02U,                      /* Number of FATs */
- 0x00U, 0x02U,               /* 512 root directory entries */
+ (CU_VFAT_ROOT_SIZE & 0xFFU), (CU_VFAT_ROOT_SIZE >> 8), /* No. of root directory entries */
  0x00U, 0x00U,               /* Number of sectors (indicates > 65535 sectors) */
  0xF8U,                      /* Media descriptor: Fixed disk */
  0x00U, 0x01U,               /* 256 sectors per FAT (One FAT uses 16 bit * 64K clusters) */
@@ -102,6 +110,198 @@ static const uint8 vfat_data_fat[VFAT_DATA_FAT_SIZE] = {
 /* Virtual filesystem state */
 static cu_state_vfat_t vfat_state;
 
+/* Last accessed file cache. This is used to remember which file the position
+** belongs to which is difficult to find from the position itself (it demands
+** a full FAT scan). It can be anything, if a match fails, this cache is
+** simply recalculated. */
+static auint vfat_last;
+
+/* Broken FAT marker. This is set if a cluster chain traversal ended up in a
+** deadlock, cleared if a write is performed on the first FAT (which is used
+** to track the disk's structure). When the FAT is broken, no reads or writes
+** succeed on the data area (to prevent locking up the host forcing it to scan
+** the bogus FAT over and over). */
+static boole vfat_broken;
+
+/* Last opened file ID. Used to prevent re-opening files */
+static auint vfat_lfile;
+
+
+
+/*
+** Returns TRUE if the given position belongs to a given file ID, that is, the
+** position's cluster is in the file's cluster chain. If it succeeds, it
+** returns the file position in fpos.
+*/
+static boole cu_vfat_belongs(auint pos, auint id, auint* fpos)
+{
+ auint fclus;
+ auint pclus;
+ auint maxch = VFAT_DATA_SIZE; /* Max chain limit to prevent crashing on a bad FAT */
+
+ if (id >= CU_VFAT_ROOT_SIZE){ return FALSE; }
+
+ fclus = ((auint)(vfat_state.sys[0x040200U + (id * 32U) + 0x1AU])     ) +
+         ((auint)(vfat_state.sys[0x040200U + (id * 32U) + 0x1BU]) << 8);
+ pclus = ((pos - CU_VFAT_SYS_SIZE) >> 15) + 0x0002U;
+ (*fpos) = (pos - CU_VFAT_SYS_SIZE) & 0x7FFFU;
+
+ while ( (fclus < VFAT_DATA_END) &&
+         (fclus >= 0x0002U) &&
+         (maxch != 0U) ){
+  if (pclus == fclus){ return TRUE; } /* Match OK */
+  fclus = ((auint)(vfat_state.sys[0x000200U + (fclus << 1) + 0U])     ) +
+          ((auint)(vfat_state.sys[0x000200U + (fclus << 1) + 1U]) << 8);
+  (*fpos) += 0x8000U;
+  maxch --;
+ }
+
+ if (maxch == 0U){ vfat_broken = TRUE; } /* Fat is bogus (contains a loop) */
+
+ return FALSE;
+}
+
+
+
+/*
+** Returns the file ID the disk position belongs to. Returns CU_VFAT_ROOT_SIZE
+** if no match is found. If it succeeds, it returns the file position in fpos.
+*/
+static auint cu_vfat_findbypos(auint pos, auint* fpos)
+{
+ auint i = 0U;
+ auint fch;
+
+ if (vfat_broken){ return CU_VFAT_ROOT_SIZE; }
+
+ /* If cache contains it, then return fast */
+
+ if (cu_vfat_belongs(pos, vfat_last, fpos)){ return vfat_last; }
+
+ /* Cache miss, do a slow search through all available files */
+
+ while (i < CU_VFAT_ROOT_SIZE){
+
+  if (vfat_broken){ return CU_VFAT_ROOT_SIZE; }
+
+  fch = vfat_state.sys[0x040200U + (i * 32U)];
+  if ( (fch != 0x00U) &&
+       (fch != 0x2EU) &&
+       (fch != 0xE5U) ){ /* Only if the first character identifies valid file */
+   if (cu_vfat_belongs(pos, i, fpos)){
+    vfat_last = i;       /* Found, so set cache */
+    return i;
+   }
+  }
+
+  i ++;
+
+ }
+
+ /* The position didn't belong anything */
+
+ return CU_VFAT_ROOT_SIZE;
+}
+
+
+
+/*
+** Converts a Host filename to a FAT16 filename (11 chars as required by the
+** directory entry). Sources of up to 8 + 3 chars are converted normally. For
+** now don't care a lot about long file names, the filesystem will work with
+** repetitions if one happens because of it.
+*/
+static void cu_vfat_tofat(const char* src, uint8* dest)
+{
+ auint spos = 0U;
+ auint dpos = 0U;
+
+ memset(dest, ' ', 11U);
+
+ while (src[spos] != 0){
+
+  if       ((src[spos] >= 'a') && (src[spos] <= 'z')){
+   dest[dpos] = (uint8)((src[spos] - 'a') + 'A');
+  }else if ((src[spos] >= 'A') && (src[spos] <= 'Z')){
+   dest[dpos] = (uint8)(src[spos]);
+  }else if ((src[spos] >= '0') && (src[spos] <= '9')){
+   dest[dpos] = (uint8)(src[spos]);
+  }else if ( (src[spos] == '~') ||
+             (src[spos] == '!') ||
+             (src[spos] == '-') ||
+             (src[spos] == '_') ){
+   dest[dpos] = (uint8)(src[spos]);
+  }else if ( (src[spos] == '.') &&
+             (dpos < 8U) ){
+   dpos = 7U; /* Go on to extension */
+   spos --;   /* Bounce back to stay at the extension dot */
+  }else{
+   dest[dpos] = (uint8)('$');
+  }
+
+  spos ++;
+  dpos ++;
+
+  if (dpos == 8U){
+   while ( (src[spos] != 0) &&
+           (src[spos] != '.') ){
+    spos ++;  /* Long name */
+   }
+   if (src[spos] == '.'){ spos ++; } /* Jump over extension dot */
+  }else if (dpos == 11U){
+   while (src[spos] != 0){
+    spos ++;  /* Long extension */
+   }
+  }
+
+ }
+}
+
+
+
+/*
+** Converts a FAT16 filename to Host filename. This is used when a new file's
+** creation is detected to produce an output file accordingly (if possible).
+** The destination needs to be able to hold up to 13 characters (8 filename,
+** 1 dot, 3 extension, terminating zero).
+*/
+static void cu_vfat_tohost(uint8 const* src, char* dest)
+{
+ auint spos = 0U;
+ auint dpos = 0U;
+
+ while (spos < 11U){
+
+  if       ((src[spos] >= 'a') && (src[spos] <= 'z')){
+   dest[dpos] = (char)(src[spos]);
+  }else if ((src[spos] >= 'A') && (src[spos] <= 'Z')){
+   dest[dpos] = ((char)(src[spos]) - 'A') + 'a';
+  }else if ((src[spos] >= '0') && (src[spos] <= '9')){
+   dest[dpos] = (char)(src[spos]);
+  }else if ( (src[spos] == '~') ||
+             (src[spos] == '!') ||
+             (src[spos] == '-') ||
+             (src[spos] == '_') ){
+   dest[dpos] = (char)(src[spos]);
+  }else{
+   dest[dpos] = '$';
+  }
+
+  spos ++;
+  dpos ++;
+
+  if (src[spos] == ' '){ spos = 8U; } /* Skip to extension */
+
+  if (spos == 8U){
+   dest[dpos] = '.';
+   dpos ++;
+  }
+
+ }
+
+ dest[dpos] = 0;
+}
+
 
 
 /*
@@ -111,10 +311,16 @@ static cu_state_vfat_t vfat_state;
 void  cu_vfat_reset(void)
 {
  auint i;
+ auint siz;
+ auint cpos = 0x0002U; /* Current cluster position */
+ auint tpos;
+ char  hname[CU_VFAT_HNAME_SIZE];
 
  /* Clear all */
 
  memset(&vfat_state, 0, sizeof(vfat_state));
+ vfat_broken = FALSE;
+ vfat_lfile  = CU_VFAT_ROOT_SIZE;
 
  /* Add Master Boot Record */
 
@@ -136,7 +342,53 @@ void  cu_vfat_reset(void)
 
  /* Add root directory */
 
- /* (Currently just empty) */
+ filesys_find_reset();
+
+ i = 0U;
+ while (i < CU_VFAT_ROOT_SIZE){
+
+  siz = filesys_find_next(&(hname[0]), CU_VFAT_HNAME_SIZE);
+  if (siz == 0xFFFFFFFFU){ break; }
+
+  printf("Found: %s (%u bytes)\n", &(hname[0]), siz);
+
+  tpos = cpos + ((siz + 32767U) >> 15); /* File's allocation */
+  if (siz == 0U){ tpos = cpos + 1U; }   /* Empty file */
+
+  if (tpos <= VFAT_DATA_END){           /* The file fits on the virtual disk */
+
+   /* Create file's directory entry and link to host file */
+
+   cu_vfat_tofat(&(hname[0]), &(vfat_state.sys[0x040200U + (i * 32U) + 0x00U]));
+   strcpy(&(vfat_state.hnames[i][0]), &(hname[0]));
+
+   vfat_state.sys[0x040200U + (i * 32U) + 0x1AU] =  cpos        & 0xFFU;
+   vfat_state.sys[0x040200U + (i * 32U) + 0x1BU] = (cpos >>  8) & 0xFFU;
+   vfat_state.sys[0x040200U + (i * 32U) + 0x1CU] =  siz         & 0xFFU;
+   vfat_state.sys[0x040200U + (i * 32U) + 0x1DU] = (siz  >>  8) & 0xFFU;
+   vfat_state.sys[0x040200U + (i * 32U) + 0x1EU] = (siz  >> 16) & 0xFFU;
+   vfat_state.sys[0x040200U + (i * 32U) + 0x1FU] = (siz  >> 24) & 0xFFU;
+
+   /* Lay out the file's clusters on the virtual disk (in both FATs) */
+
+   while (cpos < (tpos - 1U)){
+    vfat_state.sys[0x000200U + (cpos << 1) + 0U] = ((cpos + 1U)     ) & 0xFFU;
+    vfat_state.sys[0x020200U + (cpos << 1) + 0U] = ((cpos + 1U)     ) & 0xFFU;
+    vfat_state.sys[0x000200U + (cpos << 1) + 1U] = ((cpos + 1U) >> 8) & 0xFFU;
+    vfat_state.sys[0x020200U + (cpos << 1) + 1U] = ((cpos + 1U) >> 8) & 0xFFU;
+    cpos ++;
+   }
+   vfat_state.sys[0x000200U + (cpos << 1) + 0U] = 0xFFU;
+   vfat_state.sys[0x020200U + (cpos << 1) + 0U] = 0xFFU;
+   vfat_state.sys[0x000200U + (cpos << 1) + 1U] = 0xFFU;
+   vfat_state.sys[0x020200U + (cpos << 1) + 1U] = 0xFFU;
+   cpos ++;
+
+  }
+
+  i++;
+
+ }
 }
 
 
@@ -144,20 +396,48 @@ void  cu_vfat_reset(void)
 /*
 ** Reads a byte from a given byte position in the file system's (virtual) disk
 ** image. Note that a FAT16 volume is at most 2^31 bytes large (64K * 32Kbytes
-** clusters), so a 32 bit value is sufficient to address it.
+** clusters), so a 32 bit value is sufficient to address it. Reading the first
+** byte of a sector triggers buffering the sector, subsequent bytes are always
+** returned from within the buffer.
 */
 auint cu_vfat_read(auint pos)
 {
- if (pos < VFAT_SYS_SIZE){ return vfat_state.sys[pos]; }
- return 0U;
+ auint fid;
+ auint fpos;
+
+ /* System area */
+
+ if (pos < CU_VFAT_SYS_SIZE){ return vfat_state.sys[pos]; }
+
+ /* Data area */
+
+ if ((pos & 0x1FFU) == 0U){ /* First byte of sector: Buffer it */
+
+  fid = cu_vfat_findbypos(pos, &fpos);
+
+  if (fid != CU_VFAT_ROOT_SIZE){
+   if (fid != vfat_lfile){
+    filesys_open(FILESYS_CH_SD, &(vfat_state.hnames[fid][0]));
+    vfat_lfile = fid;
+   }
+   filesys_setpos(FILESYS_CH_SD, fpos);
+   filesys_read(FILESYS_CH_SD, &(vfat_state.rwbuf[0]), 512U);
+  }else{
+   memset(&(vfat_state.rwbuf[0]), 0U, 512U);
+  }
+
+ }
+
+ return vfat_state.rwbuf[pos & 0x1FFU];
 }
 
 
 
 /*
 ** Writes a byte to the given byte position in the file system's (virtual)
-** disk image. Writes to last bytes of sectors might trigger filesystem
-** activity (so writing full 512 byte sectors is preferred).
+** disk image. Writing the last byte of a sector triggers writing out the
+** buffered sector (so ideally a sector should be filled up as a sequence of
+** writes).
 */
 void  cu_vfat_write(auint pos, auint data)
 {

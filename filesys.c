@@ -333,13 +333,16 @@ void  filesys_find_reset(void)
   tstr[i] = filesys_path[i];
   i ++;
  }
- if (i != 0U){
+ if (i > 1U){  /* Don't remove an absolute path marker */
   i --;
-  if ( (tstr[i] == '/') ||
-       (tstr[i] == '\\') ){
-   tstr[i] = 0;
-  }
+  if ( (tstr[i] != '/') &&
+       (tstr[i] != '\\') ){ i ++; }
  }
+ if (i == 0U){ /* Add a dot to identify current directory */
+  tstr[i] = '.';
+  i ++;
+ }
+ tstr[i] = 0;
 
  /* Open the directory */
 
@@ -352,7 +355,8 @@ void  filesys_find_reset(void)
 ** Finds next file. Returns the found file's size and name in dest. The return
 ** is 0xFFFFFFFF on the end of the directory. It will skip any directory or
 ** file whose size is equal or larger than 0xFFFFFFFF bytes or whose name is
-** too long to fit in dest (by len).
+** too long to fit in dest (by len). The returned name is relative to the path
+** (so it has no path component, only a bare file name).
 */
 auint filesys_find_next(char* dest, auint len)
 {
