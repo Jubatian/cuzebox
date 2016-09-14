@@ -28,8 +28,7 @@
 
 
 #include "cu_hfile.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "filesys.h"
 
 
 
@@ -50,7 +49,6 @@ static const char* cu_war = "Warning: ";
 */
 boole cu_hfile_load(char const* fname, uint8* cmem)
 {
- FILE* fp;
  uint8 buf[128];
  uint8 dec[64];
  auint lpos = 0U; /* Input file line counter */
@@ -59,19 +57,26 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
  auint wp;
  auint lh;
  auint dv;
- boole eflg = FALSE;
+ uint8 byte;
 
- fp = fopen(fname, "rb");
- if (fp == NULL){
+ if (!filesys_open(FILESYS_CH_EMU, fname)){
   fprintf(stderr, "%s%sCouldn't open %s.\n", cu_id, cu_err, fname);
   goto ex_none;
  }
 
  while (TRUE){
 
-  if (feof(fp)){ eflg = TRUE; }
-  if (fgets((char*)(&(buf[0])), 128U, fp) == NULL){ eflg = TRUE; }
-  if (eflg){
+  wp = 0U;
+  while (filesys_read(FILESYS_CH_EMU, &byte, 1U) != 0U){
+   if (wp < 127U){
+    buf[wp] = byte;
+    wp ++;
+   }
+   if ( (byte == '\n') ||
+        (byte == '\r') ){ break; }
+  }
+  buf[wp] = 0U;
+  if (wp == 0U){
    fprintf(stderr, "%s%sEOF without end marker on line %u in %s.\n", cu_id, cu_war, lpos, fname);
    goto ex_ok;
   }
@@ -189,7 +194,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
 
 ex_ok:
 
- fclose(fp);
+ filesys_flush(FILESYS_CH_EMU);
 
  /* Print out successful result */
 
@@ -202,7 +207,7 @@ ex_ok:
  /* Failing exits */
 
 ex_file:
- fclose(fp);
+ filesys_flush(FILESYS_CH_EMU);
 
 ex_none:
  return FALSE;

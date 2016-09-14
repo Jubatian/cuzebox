@@ -28,8 +28,7 @@
 
 
 #include "cu_ufile.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "filesys.h"
 
 
 
@@ -54,19 +53,17 @@ static const char* cu_war = "Warning: ";
 */
 boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
 {
- FILE* fp;
  asint rv;
  uint8 buf[512];
  auint i;
  auint len;
 
- fp = fopen(fname, "rb");
- if (fp == NULL){
+ if (!filesys_open(FILESYS_CH_EMU, fname)){
   fprintf(stderr, "%s%sCouldn't open %s.\n", cu_id, cu_err, fname);
   goto ex_none;
  }
 
- rv = fread(buf, 1U, 512U, fp);
+ rv = filesys_read(FILESYS_CH_EMU, buf, 512U);
  if (rv != 512){
   fprintf(stderr, "%s%sNot enough data for header in %s.\n", cu_id, cu_err, fname);
   goto ex_file;
@@ -121,13 +118,13 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
  for (i = 0U; i < 63U; i++){ head->desc[i] = buf[339U + i]; }
  head->desc[63] = 0U;
 
- rv = fread(cmem, 1U, len, fp);
+ rv = filesys_read(FILESYS_CH_EMU, cmem, len);
  if (rv != len){
   fprintf(stderr, "%s%sNot enough data for program in %s.\n", cu_id, cu_err, fname);
   goto ex_file;
  }
 
- fclose(fp);
+ filesys_flush(FILESYS_CH_EMU);
 
  /* Print out successful result */
 
@@ -150,7 +147,7 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
  /* Failing exits */
 
 ex_file:
- fclose(fp);
+ filesys_flush(FILESYS_CH_EMU);
 
 ex_none:
  return FALSE;

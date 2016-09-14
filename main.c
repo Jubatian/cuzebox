@@ -31,6 +31,7 @@
 #include "cu_hfile.h"
 #include "cu_avr.h"
 #include "cu_ctr.h"
+#include "filesys.h"
 #include "guicore.h"
 #include "audio.h"
 #include "frame.h"
@@ -320,13 +321,13 @@ int main (int argc, char** argv)
  char const*       game = main_game;
 
  if (argc > 1){ game = argv[1]; }
-
+ filesys_setpath(game, &(tstr[0]), 100U); /* Locate everything beside the game */
 
  ecpu = cu_avr_get_state();
  eepdump_load(&(ecpu->eepr[0]));
 
- if (!cu_ufile_load(game, &(ecpu->crom[0]), &ufhead)){
-  if (!cu_hfile_load(game, &(ecpu->crom[0]))){
+ if (!cu_ufile_load(&(tstr[0]), &(ecpu->crom[0]), &ufhead)){
+  if (!cu_hfile_load(&(tstr[0]), &(ecpu->crom[0]))){
    return 1;
   }
  }
@@ -360,6 +361,7 @@ int main (int argc, char** argv)
 
  audio_quit();
  guicore_quit();
+ filesys_flushall();
 #endif
 
  return 0;

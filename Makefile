@@ -48,6 +48,7 @@ OBJECTS += $(OBD)/cu_ctr.o
 OBJECTS += $(OBD)/cu_spi.o
 OBJECTS += $(OBD)/cu_spisd.o
 OBJECTS += $(OBD)/cu_vfat.o
+OBJECTS += $(OBD)/filesys.o
 OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/frame.o
@@ -101,6 +102,9 @@ $(OBD)/cu_spisd.o: cu_spisd.c $(DEPS)
 
 $(OBD)/cu_vfat.o: cu_vfat.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
+
+$(OBD)/filesys.o: filesys.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/guicore.o: guicore.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)

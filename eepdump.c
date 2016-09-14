@@ -28,6 +28,7 @@
 
 
 #include "eepdump.h"
+#include "filesys.h"
 
 
 
@@ -42,21 +43,18 @@ static const char* eepdump_file = "eeprom.bin";
 */
 void eepdump_load(uint8* eeprom)
 {
- FILE* fp;
- asint rv;
+ auint rv;
 
- fp = fopen(eepdump_file, "rb");
- if (fp == NULL){ goto ex_none; }
+ if (!filesys_open(FILESYS_CH_EEP, eepdump_file)){ goto ex_fail; }
 
- rv = fread(eeprom, 1U, 2048U, fp);
- if (rv != 2048){ goto ex_file; }
+ rv = filesys_read(FILESYS_CH_EEP, eeprom, 2048U);
+ if (rv != 2048){ goto ex_fail; }
 
- fclose(fp);
+ filesys_flush(FILESYS_CH_EEP);
  return;
 
-ex_file:
- fclose(fp);
-ex_none:
+ex_fail:
+ filesys_flush(FILESYS_CH_EEP);
  memset(eeprom, 0xFFU, 2048U);
  return;
 }
@@ -69,25 +67,10 @@ ex_none:
 */
 void eepdump_save(uint8 const* eeprom)
 {
-/* Note: In Emscripten there is no sense in saving */
-#ifndef __EMSCRIPTEN__
+ (void)(filesys_open(FILESYS_CH_EEP, eepdump_file));   /* Might fail since tries to open for reading */
 
- FILE* fp;
- asint rv;
+ (void)(filesys_write(FILESYS_CH_EEP, eeprom, 2048U)); /* Don't care for faults (can't do anything about them) */
 
- fp = fopen(eepdump_file, "wb");
- if (fp == NULL){ goto ex_none; }
-
- rv = fwrite(eeprom, 1U, 2048U, fp);
- if (rv != 2048){ goto ex_file; }
-
- fclose(fp);
+ filesys_flush(FILESYS_CH_EEP);
  return;
-
-ex_file:
- fclose(fp);
-ex_none:
- return;
-
-#endif
 }
