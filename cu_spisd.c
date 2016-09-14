@@ -67,6 +67,9 @@ static cu_state_spisd_t sd_state;
 /* Data preparation time for reads (bytes, arbitrary) */
 #define READ_P_N  2U
 
+/* Milliseconds of busy timeout after writes */
+#define WRITE_T   100U
+
 
 /* SD card state machine states */
 /* Uninitialized: waiting for CS and DI going high */
@@ -87,6 +90,11 @@ static cu_state_spisd_t sd_state;
 #define STAT_CMD17      7U
 /* Read multiple blocks */
 #define STAT_CMD18      8U
+/* Write single block */
+#define STAT_CMD24      9U
+/* Write multiple blocks */
+#define STAT_CMD25     10U
+
 
 /* Command state machine. The low 6 bits hold the command */
 /* Receiving flag: If set, a command is under reception */
@@ -116,6 +124,20 @@ static cu_state_spisd_t sd_state;
 #define PSTAT_RDATA     2U
 /* Read CRC bytes (2) */
 #define PSTAT_RCRC      3U
+/* CMD24 Write wait for data token */
+#define PSTAT_W24PREP   4U
+/* CMD24 Write accept data (512) */
+#define PSTAT_W24DATA   5U
+/* CMD24 Write accept CRC (2) */
+#define PSTAT_W24CRC    6U
+/* CMD25 Write wait for data token */
+#define PSTAT_W25PREP   7U
+/* CMD25 Write accept data (512) */
+#define PSTAT_W25DATA   8U
+/* CMD25 Write accept CRC (2) */
+#define PSTAT_W25CRC    9U
+/* Busy after the end of writes */
+#define PSTAT_WBUSY    10U
 
 
 
@@ -167,6 +189,7 @@ void  cu_spisd_send(auint data, auint cycle)
 {
  boole atcrc = FALSE;   /* Mark that data contains the CRC of a parsed command */
  boole atend = FALSE;   /* Mark that a command ended, need to form a response */
+ boole write = FALSE;   /* In writing (to block command processing) */
  auint cmd   = sd_state.cmd; /* Save for command processing */
 
  sd_state.data = 0xFFU; /* Default data out */
@@ -176,10 +199,10 @@ void  cu_spisd_send(auint data, auint cycle)
 
  switch (sd_state.pstat){
 
-  case PSTAT_IDLE:
+  case PSTAT_IDLE:      /* Idle */
    break;
 
-  case PSTAT_RPREP:
+  case PSTAT_RPREP:     /* Read data preparation & data token */
    if (sd_state.ppos >= READ_P_N){
     sd_state.data  = 0xFEU; /* Read data token */
     sd_state.pstat = PSTAT_RDATA;
@@ -189,7 +212,7 @@ void  cu_spisd_send(auint data, auint cycle)
    }
    break;
 
-  case PSTAT_RDATA:
+  case PSTAT_RDATA:     /* Read data bytes (512) */
    sd_state.data  = cu_vfat_read((sd_state.paddr << 9) + sd_state.ppos);
    sd_state.ppos  ++;
    if (sd_state.ppos == 512U){
@@ -198,11 +221,92 @@ void  cu_spisd_send(auint data, auint cycle)
    }
    break;
 
-  case PSTAT_RCRC:
+  case PSTAT_RCRC:      /* Read CRC bytes (2) */
    sd_state.data  = 0x00U; /* SD CRC is currently unsupported */
    sd_state.ppos  ++;
    if (sd_state.ppos == 2U){
     sd_state.pstat = PSTAT_IDLE;
+   }
+   break;
+
+  case PSTAT_W24PREP:   /* CMD24 Write wait for data token */
+   if (sd_state.ppos > 1U){
+    if (data == 0xFEU){ /* Data token */
+     sd_state.pstat = PSTAT_W24DATA;
+     sd_state.ppos  = 0U;
+    }
+   }else{
+    sd_state.ppos ++;
+   }
+   write = TRUE;
+   break;
+
+  case PSTAT_W24DATA:   /* CMD24 Write accept data (512) */
+   cu_vfat_write((sd_state.paddr << 9) + sd_state.ppos, data);
+   sd_state.ppos  ++;
+   if (sd_state.ppos == 512U){
+    sd_state.pstat = PSTAT_W24CRC;
+    sd_state.ppos  = 0U;
+   }
+   write = TRUE;
+   break;
+
+  case PSTAT_W24CRC:    /* CMD24 Write accept CRC (2) */
+   /* CRC is silently ignored (not supported) */
+   sd_state.ppos  ++;
+   if (sd_state.ppos == 2U){
+    sd_state.pstat = PSTAT_WBUSY;
+    sd_state.next  = WRITE_T * SPI_1MS;
+    sd_state.data  = 0x05U; /* Data response token: Accepted. */
+   }
+   write = TRUE;
+   break;
+
+  case PSTAT_W25PREP:   /* CMD25 Write wait for data token */
+   if (sd_state.ppos > 1U){
+    if (data == 0xFCU){    /* Data token */
+     sd_state.pstat = PSTAT_W25DATA;
+     sd_state.ppos  = 0U;
+    }else{
+     if (data == 0xFDU){   /* Stop transmission */
+      sd_state.pstat = PSTAT_WBUSY;
+      sd_state.next  = WRITE_T * SPI_1MS;
+     }
+    }
+   }else{
+    sd_state.ppos ++;
+   }
+   write = TRUE;
+   break;
+
+  case PSTAT_W25DATA:   /* CMD25 Write accept data (512) */
+   cu_vfat_write((sd_state.paddr << 9) + sd_state.ppos, data);
+   sd_state.ppos  ++;
+   if (sd_state.ppos == 512U){
+    sd_state.pstat = PSTAT_W25CRC;
+    sd_state.ppos  = 0U;
+   }
+   write = TRUE;
+   break;
+
+  case PSTAT_W25CRC:    /* CMD25 Write accept CRC (2) */
+   /* CRC is silently ignored (not supported) */
+   sd_state.ppos  ++;
+   if (sd_state.ppos == 2U){
+    sd_state.pstat = PSTAT_W25PREP;
+    sd_state.data  = 0x05U; /* Data response token: Accepted. */
+    sd_state.ppos  = 0U;    /* Skip being busy here */
+   }
+   write = TRUE;
+   break;
+
+  case PSTAT_WBUSY:     /* Busy after the end of writes */
+   if (WRAP32(sd_state.next - cycle) > 0x80000000U){ /* Done */
+    sd_state.pstat = PSTAT_IDLE;
+   }else{
+    if (sd_state.ena){  /* Only pulls it low if Chip Select is enabled */
+     sd_state.data = 0x00U;
+    }
    }
    break;
 
@@ -213,7 +317,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
  /* Generic SD command processing */
 
- if (sd_state.ena){
+ if ((sd_state.ena) && (!write)){
 
   if ( (sd_state.state != STAT_UNINIT) &&
        (sd_state.state != STAT_NINIT) ){
@@ -472,6 +576,13 @@ void  cu_spisd_send(auint data, auint cycle)
       sd_state.r1 |= R1_IDLE;
       break;
 
+     case 13U: /* Send Status */
+      sd_state.r1    = 0U;     /* A bit of hack to produce a zero status */
+      sd_state.crarg = 0U;     /* (R2 response, 2 bytes, first byte is produced */
+      sd_state.cmd   = SCMD_X; /* by the R1, second byte by the highest byte of */
+      sd_state.evcnt = 3U;     /* the normally 32 bit argument) */
+      break;
+
      case 16U: /* Set block length */
       break;   /* Accept but ignore (assuming it is just used to set 512 bytes) */
 
@@ -490,9 +601,17 @@ void  cu_spisd_send(auint data, auint cycle)
       break;
 
      case 24U: /* Write block */
+      sd_state.state = STAT_CMD24;
+      sd_state.ppos  = 0U;
+      sd_state.pstat = PSTAT_W24PREP;
+      sd_state.paddr = sd_state.crarg >> 9; /* SDSC card, byte argument */
       break;
 
      case 25U: /* Write multiple blocks */
+      sd_state.state = STAT_CMD25;
+      sd_state.ppos  = 0U;
+      sd_state.pstat = PSTAT_W25PREP;
+      sd_state.paddr = sd_state.crarg >> 9; /* SDSC card, byte argument */
       break;
 
      case 58U: /* Read OCR */
@@ -539,6 +658,13 @@ void  cu_spisd_send(auint data, auint cycle)
    }
    break;
 
+  case STAT_CMD24:         /* CMD24: Write single block */
+  case STAT_CMD25:         /* CMD25: Write multiple blocks */
+   if (sd_state.pstat == PSTAT_IDLE){
+    sd_state.state = STAT_AVAIL; /* Simply wait until the end of the transfers */
+   }
+   break;
+
   default:                 /* State machine error, shouldn't happen */
    sd_state.state = STAT_UNINIT;
    break;
@@ -548,6 +674,7 @@ void  cu_spisd_send(auint data, auint cycle)
 /* printf("%08X (r: %08X); SD Send: Ena: %u, Byte: %02X, %02X, Stat: %u, Cmd: %03X, PPos: %3u\n",
 **     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.data, sd_state.state, sd_state.cmd, sd_state.ppos);
 */
+
 }
 
 
