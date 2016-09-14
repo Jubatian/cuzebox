@@ -45,6 +45,9 @@ static cu_state_spisd_t sd_state;
 /* 1ms clocks */
 #define SPI_1MS   28634U
 
+/* Milliseconds taken for the card's initialization */
+#define SD_INIMS  500U
+
 /* Command response time (bytes, should be 0 - 8) */
 #define CMD_N     1U
 
@@ -135,10 +138,10 @@ void  cu_spisd_cs_set(boole ena, auint cycle)
       ((!sd_state.ena) && ena) ){
   sd_state.ena  = ena;
   sd_state.enac = cycle;
-  if (sd_state.ena == FALSE){ sd_state.cmd = 0U; } /* Kill any command if CS goes away */
+  if (sd_state.ena == FALSE){ /* Kill any command if CS goes away */
+   sd_state.cmd &= SCMD_A;    /* (Except for the app. command flag which indicates waiting for such a command) */
+  }
  }
-/* printf("%08X; CS: %u\n", cycle, (auint)(ena));
-*/
 }
 
 
@@ -223,9 +226,9 @@ void  cu_spisd_send(auint data, auint cycle)
    if       ((sd_state.cmd & SCMD_R) == 0U){ /* Waiting for command */
 
     if ((data & 0xC0U) == 0x40U){            /* Valid command byte */
-     sd_state.cmd = (sd_state.cmd & (~(0xFFU | SCMD_N | SCMD_X))) |
-                    (data & 0x3FU) |         /* Receiving */
-                    SCMD_R;                  /* (while retaining SCMD_A if it was there) */
+     sd_state.cmd = (sd_state.cmd & SCMD_A) |
+                    (data & 0x3FU) | /* Receiving */
+                    SCMD_R;          /* While retaining SCMD_A if it was there */
      sd_state.crarg = 0U;
      sd_state.evcnt = 0U;
      sd_state.r1    = 0U;
@@ -248,6 +251,13 @@ void  cu_spisd_send(auint data, auint cycle)
     if (sd_state.evcnt >= CMD_N){
      if ((sd_state.cmd & 0x3FU) == 55U){ /* App. command */
       sd_state.cmd = SCMD_A;  /* No command end mark since this will be an app. command */
+      if ( (sd_state.state == STAT_NATIVE) ||
+           (sd_state.state == STAT_IDLE) ||
+           (sd_state.state == STAT_VERIFIED) ||
+           (sd_state.state == STAT_IINIT) ){
+       sd_state.r1 |= R1_IDLE;
+      }
+      sd_state.data = sd_state.r1; /* Create an R1 response for it (will not be processed otherwise) */
      }else{
       sd_state.cmd = 0U;
       atend = TRUE;
@@ -349,13 +359,14 @@ void  cu_spisd_send(auint data, auint cycle)
 
       case  1U: /* Initiate initialization (bypassing CMD8 - ACMD41) */
        sd_state.state = STAT_IINIT;
-       sd_state.next  = SPI_1MS * 1000U;
+       sd_state.next  = SPI_1MS * SD_INIMS;
        break;
 
       case  8U: /* Send Interface Condition */
        if (sd_state.r1 == 0U){ /* No error, accept */
         sd_state.crarg = 0x000001AAU;
         sd_state.cmd   = SCMD_X;
+        sd_state.evcnt = 0U;
         sd_state.state = STAT_VERIFIED;
        }
        break;
@@ -363,6 +374,7 @@ void  cu_spisd_send(auint data, auint cycle)
       case 58U: /* Read OCR */
        sd_state.crarg = 0x80FF0000U; /* Report as an SDSC card */
        sd_state.cmd   = SCMD_X;
+       sd_state.evcnt = 0U;
        break;
 
       case 59U: /* Toggle CRC checks */
@@ -372,7 +384,7 @@ void  cu_spisd_send(auint data, auint cycle)
        if ( (sd_state.state == STAT_VERIFIED) &&
             ((sd_state.crarg & 0xBF00FFFFU) == 0U) ){
         sd_state.state = STAT_IINIT;
-        sd_state.next  = SPI_1MS * 1000U;
+        sd_state.next  = SPI_1MS * SD_INIMS;
        }else{
         sd_state.r1 |= R1_ILL;
        }
@@ -473,6 +485,7 @@ void  cu_spisd_send(auint data, auint cycle)
      case 58U: /* Read OCR */
       sd_state.crarg = 0x80FF0000U; /* Report as an SDSC card */
       sd_state.cmd   = SCMD_X;
+      sd_state.evcnt = 0U;
       break;
 
      case 59U: /* Toggle CRC checks */
@@ -508,6 +521,7 @@ void  cu_spisd_send(auint data, auint cycle)
      sd_state.data  = sd_state.r1;
      sd_state.crarg = 0x00000000U; /* Generate 4 busy bytes (a bit of hack to get a "complete" R1b) */
      sd_state.cmd   = SCMD_X;
+     sd_state.evcnt = 0U;
     }
    }
    break;
