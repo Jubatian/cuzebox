@@ -41,9 +41,22 @@ static cu_state_spisd_t sd_state;
 #define SPI_400   ( 71U * 8U)
 /* 100KHz SPI transfer clocks */
 #define SPI_100   (287U * 8U)
-
 /* 1ms clocks */
 #define SPI_1MS   28634U
+
+/* Frequency high limit during initializing. Note that there are a few games
+** which don't respect the 400 KHz recommendation (notably Alter Ego), to keep
+** them working, the high limit has to be turned off (set anything less or
+** equal to 16). To get strict SD, use SPI_400 here. */
+#define INIF_HI   16U
+
+/* Frequency low limit during initializing. */
+#define INIF_LO   SPI_100
+
+/* Milliseconds to require after pulling high CS for a successful
+** initialization. Some games doesn't respect this (notably Alter Ego), to
+** keep them working, use zero here. Otherwise set it to 1 or 2. */
+#define INICS_T   0U
 
 /* Milliseconds taken for the card's initialization */
 #define SD_INIMS  500U
@@ -280,11 +293,11 @@ void  cu_spisd_send(auint data, auint cycle)
   case STAT_UNINIT:        /* Uninitialized: Waiting for CS high and Data high */
 
    sd_state.pstat = PSTAT_IDLE;
-   if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
-        (WRAP32(cycle - sd_state.recvc) <= SPI_100) && /* SPI timing constraint OK */
+   if ( (WRAP32(cycle - sd_state.recvc) >= INIF_HI) && /* SPI timing constraint OK */
+        (WRAP32(cycle - sd_state.recvc) <= INIF_LO) && /* SPI timing constraint OK */
         (data == 0xFFU) &&                             /* Data high satisfied */
         (!sd_state.ena) &&                             /* CS high (card is deselected) satisfied */
-        (WRAP32(cycle - sd_state.enac)  >= SPI_1MS) ){ /* At least 1ms passed */
+        (WRAP32(cycle - sd_state.enac)  >= (INICS_T * SPI_1MS)) ){ /* At least the required init time passed */
     sd_state.state = STAT_NINIT;
     sd_state.evcnt = 1U;   /* Initializing native mode, 1 data byte already got */
     sd_state.data  = 0xFFU;
@@ -294,8 +307,8 @@ void  cu_spisd_send(auint data, auint cycle)
   case STAT_NINIT:         /* Wait for init pulses */
 
    sd_state.pstat = PSTAT_IDLE;
-   if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
-        (WRAP32(cycle - sd_state.recvc) <= SPI_100) && /* SPI timing constraint OK */
+   if ( (WRAP32(cycle - sd_state.recvc) >= INIF_HI) && /* SPI timing constraint OK */
+        (WRAP32(cycle - sd_state.recvc) <= INIF_LO) && /* SPI timing constraint OK */
         (data == 0xFFU) &&                             /* Data high satisfied */
         (!sd_state.ena) ){                             /* CS high (card is deselected) satisfied */
     sd_state.evcnt ++;
@@ -311,8 +324,8 @@ void  cu_spisd_send(auint data, auint cycle)
   case STAT_NATIVE:        /* Native mode: Waiting for a CMD0 */
 
    sd_state.pstat = PSTAT_IDLE;
-   if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
-        (WRAP32(cycle - sd_state.recvc) <= SPI_100) ){ /* SPI timing constraint OK */
+   if ( (WRAP32(cycle - sd_state.recvc) >= INIF_HI) && /* SPI timing constraint OK */
+        (WRAP32(cycle - sd_state.recvc) <= INIF_LO) ){ /* SPI timing constraint OK */
     if (atcrc){
      if ( ((cmd & 0x3FU) != 0U) ||
           (sd_state.crarg != 0U) ||
@@ -334,8 +347,8 @@ void  cu_spisd_send(auint data, auint cycle)
   case STAT_VERIFIED:      /* Verified state, same */
 
    sd_state.pstat = PSTAT_IDLE;
-   if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
-        (WRAP32(cycle - sd_state.recvc) <= SPI_100) ){ /* SPI timing constraint OK */
+   if ( (WRAP32(cycle - sd_state.recvc) >= INIF_HI) && /* SPI timing constraint OK */
+        (WRAP32(cycle - sd_state.recvc) <= INIF_LO) ){ /* SPI timing constraint OK */
     /* Here the SD card should accept the followings:
     ** CMD0
     ** CMD1
@@ -404,8 +417,8 @@ void  cu_spisd_send(auint data, auint cycle)
   case STAT_IINIT:         /* Initializing */
 
    sd_state.pstat = PSTAT_IDLE;
-   if ( (WRAP32(cycle - sd_state.recvc) >= SPI_400) && /* SPI timing constraint OK */
-        (WRAP32(cycle - sd_state.recvc) <= SPI_100) ){ /* SPI timing constraint OK */
+   if ( (WRAP32(cycle - sd_state.recvc) >= INIF_HI) && /* SPI timing constraint OK */
+        (WRAP32(cycle - sd_state.recvc) <= INIF_LO) ){ /* SPI timing constraint OK */
     /* Here the SD card should accept the followings:
     ** CMD0
     ** CMD1
