@@ -68,7 +68,7 @@
 
 
 /* Master Boot Record data (Note: Records are Little Endian!).
-** Not included are the signature bytes (0xAA, 0x55) on the end of the 512
+** Not included are the signature bytes (0x55, 0xAA) on the end of the 512
 ** byte sector */
 #define VFAT_DATA_MBR_SIZE 0x3EU
 static const uint8 vfat_data_mbr[VFAT_DATA_MBR_SIZE] = {
@@ -327,8 +327,8 @@ void  cu_vfat_reset(void)
  for (i = 0U; i < VFAT_DATA_MBR_SIZE; i++){
   vfat_state.sys[i] = vfat_data_mbr[i];
  }
- vfat_state.sys[0x0001FEU] = 0xAAU;
- vfat_state.sys[0x0001FFU] = 0x55U;
+ vfat_state.sys[0x0001FEU] = 0x55U;
+ vfat_state.sys[0x0001FFU] = 0xAAU;
 
  /* Add FAT0 */
 
