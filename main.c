@@ -178,7 +178,7 @@ static void main_loop(void)
  /* Handle divergences */
 
  if (drift >= 0x80000000U){   /* Possibly too slow */
-  if ((drift + 5U) >= 0x80000000U){   /* Transient problem (late by at least 1 frame) */
+  if ((drift + 8U) >= 0x80000000U){   /* Transient problem (late by at least 1 frame) */
    if ((drift + 75U) >= 0x80000000U){ /* Permanent problem (late by several frames) */
     if ((drift + 225U) >= 0x80000000U){
      drift = (auint)(0U) - 225U;      /* Limit (throw away memory) */

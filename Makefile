@@ -47,6 +47,7 @@ OBJECTS += $(OBD)/cu_avrc.o
 OBJECTS += $(OBD)/cu_ctr.o
 OBJECTS += $(OBD)/cu_spi.o
 OBJECTS += $(OBD)/cu_spisd.o
+OBJECTS += $(OBD)/cu_spir.o
 OBJECTS += $(OBD)/cu_vfat.o
 OBJECTS += $(OBD)/filesys.o
 OBJECTS += $(OBD)/guicore.o
@@ -98,6 +99,9 @@ $(OBD)/cu_spi.o: cu_spi.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/cu_spisd.o: cu_spisd.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSPD)
+
+$(OBD)/cu_spir.o: cu_spir.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/cu_vfat.o: cu_vfat.c $(DEPS)

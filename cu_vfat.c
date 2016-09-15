@@ -520,4 +520,6 @@ cu_state_vfat_t* cu_vfat_get_state(void)
 */
 void  cu_vfat_update(void)
 {
+ vfat_broken = FALSE;
+ vfat_lfile  = CU_VFAT_ROOT_SIZE;
 }

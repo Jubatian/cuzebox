@@ -1,5 +1,5 @@
 /*
- *  SD card peripheral (on SPI bus)
+ *  SPI RAM peripheral (on SPI bus)
  *
  *  Copyright (C) 2016
  *    Sandor Zsuga (Jubatian)
@@ -27,73 +27,66 @@
 
 
 
-#ifndef CU_SPISD_H
-#define CU_SPISD_H
+#ifndef CU_SPIR_H
+#define CU_SPIR_H
 
 
 
 #include "types.h"
 
 
-/* SD card state structure. This isn't really meant to be edited, but it is
+/* SPI RAM state structure. This isn't really meant to be edited, but it is
 ** necessary for emulator state dumps. Every value is at most 32 bits. */
 typedef struct{
- boole ena;      /* Chip select state, TRUE: Enabled (CS low) */
- auint enac;     /* Cycle of last chip select toggle */
- auint state;    /* SD card state machine */
- auint next;     /* Next event's cycle. Actual interpretation depends on state. */
- auint recvc;    /* Last receive's cycle, used to determine bus speed where necessary */
- auint evcnt;    /* Event counter, used when a transition needs a certain number of events */
- auint cmd;      /* Command / Response state machine */
- auint crarg;    /* Command / Response argument */
- auint r1;       /* Command response (R1) (8 bits)*/
+ uint8 ram[0x20000U];
+ boole ena;      /* Chip select state, TRUE: enabled (CS low) */
+ auint mode;     /* Mode register's contents (on bit 6 and 7) */
+ auint state;    /* SPI RAM state machine */
+ auint addr;     /* Address within the RAM */
  auint data;     /* Data waiting to get on the output (8 bits) */
- auint pstat;    /* Packet transmission state machine */
- auint paddr;    /* Packet sector (512 byte units) address */
- auint ppos;     /* Packet transmission byte position */
-}cu_state_spisd_t;
+}cu_state_spir_t;
 
 
 /*
-** Resets SD card peripheral. Cycle is the CPU cycle when it happens which
+** Resets SPI RAM peripheral. Cycle is the CPU cycle when it happens which
 ** might be used for emulating timing constraints.
 */
-void  cu_spisd_reset(auint cycle);
+void  cu_spir_reset(auint cycle);
 
 
 /*
 ** Sets chip select's state, TRUE to enable, FALSE to disable.
 */
-void  cu_spisd_cs_set(boole ena, auint cycle);
+void  cu_spir_cs_set(boole ena, auint cycle);
 
 
 /*
-** Sends a byte of data to the SD card. The passed cycle corresponds the cycle
+** Sends a byte of data to the SPI RAM. The passed cycle corresponds the cycle
 ** when it was clocked out of the AVR.
 */
-void  cu_spisd_send(auint data, auint cycle);
+void  cu_spir_send(auint data, auint cycle);
 
 
 /*
-** Receives a byte of data from the SD card. The passed cycle corresponds the
+** Receives a byte of data from the SPI RAM. The passed cycle corresponds the
 ** cycle when it must start to clock into the AVR. 0xFF is sent when the card
 ** tri-states the line.
 */
-auint cu_spisd_recv(auint cycle);
+auint cu_spir_recv(auint cycle);
 
 
 /*
-** Returns SD card state. It may be written, then the cu_spisd_update()
+** Returns SPI RAM state. It may be written, then the cu_spir_update()
 ** function has to be called to rebuild any internal state depending on it.
 */
-cu_state_spisd_t* cu_spisd_get_state(void);
+cu_state_spir_t* cu_spir_get_state(void);
 
 
 /*
 ** Rebuild internal state according to the current state. Call after writing
-** the SD card state.
+** the SPI RAM state.
 */
-void  cu_spisd_update(void);
+void  cu_spir_update(void);
 
 
 #endif
