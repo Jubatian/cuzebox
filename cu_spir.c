@@ -40,18 +40,22 @@ static cu_state_spir_t spir_state;
 /* Parameter position mask & shift */
 #define STAT_PPMASK  0xC0U
 #define STAT_PPSH    6U
+/* Read (Data bytes) */
+#define STAT_READB   0x00U
 /* Wait for instruction */
-#define STAT_IDLE    0x00U
+#define STAT_IDLE    0x01U
 /* Read */
-#define STAT_READ    0x01U
+#define STAT_READ    0x02U
 /* Write */
-#define STAT_WRITE   0x02U
+#define STAT_WRITE   0x03U
+/* Write (data bytes) */
+#define STAT_WRITEB  0x04U
 /* Read mode register */
-#define STAT_RMODE   0x03U
+#define STAT_RMODE   0x05U
 /* Write mode register */
-#define STAT_WMODE   0x04U
+#define STAT_WMODE   0x06U
 /* Sink (don't accept further data) */
-#define STAT_SINK    0x05U
+#define STAT_SINK    0x07U
 
 
 
@@ -92,6 +96,24 @@ void  cu_spir_send(auint data, auint cycle)
 {
  auint ppos;
 
+ /* This fast path serves reads, beneficial if the SPI RAM is used for
+ ** generating video data. */
+
+ if (spir_state.state == STAT_READB){
+
+  if       (spir_state.mode == 0x80U){ /* Page mode */
+   spir_state.addr = (spir_state.addr & 0x1FFE0U) +
+                     ((spir_state.addr + 1U) & 0x1FU);
+  }else if (spir_state.mode == 0x40U){ /* Sequential mode */
+   spir_state.addr ++;
+  }else{}
+  spir_state.data  = spir_state.ram[spir_state.addr & 0x1FFFFU];
+
+  return;
+ }
+
+ /* Normal SPI RAM processing (excluding processing reads) */
+
  spir_state.data = 0xFFU; /* Default data out */
 
  if (spir_state.ena){     /* Good, this only tampers with the bus if actually enabled (unlike the SD card...) */
@@ -122,41 +144,38 @@ void  cu_spir_send(auint data, auint cycle)
     }
     break;
 
-   case STAT_READ:        /* Read bytes */
+   case STAT_READ:        /* Read (preparation) */
 
     ppos = (spir_state.state & STAT_PPMASK) >> STAT_PPSH;
-    if (ppos <  3U){
-     spir_state.addr |= data << ((2U - ppos) * 8U);
-     ppos ++;
-     spir_state.state = STAT_READ | (ppos << STAT_PPSH);
-    }
+    spir_state.addr |= data << ((2U - ppos) * 8U);
+    ppos ++;
+    spir_state.state = STAT_READ | (ppos << STAT_PPSH);
     if (ppos == 3U){
-     spir_state.data  = spir_state.ram[spir_state.addr & 0x1FFFFU];
-     if       (spir_state.mode == 0x80U){ /* Page mode */
-      spir_state.addr = (spir_state.addr & 0x1FFE0U) +
-                        ((spir_state.addr + 1U) & 0x1FU);
-     }else if (spir_state.mode == 0x40U){ /* Sequential mode */
-      spir_state.addr ++;
-     }else{}
+     spir_state.state = STAT_READB;
+     spir_state.data  = spir_state.ram[spir_state.addr & 0x1FFFFU]; /* First data byte */
     }
     break;
 
-   case STAT_WRITE:       /* Write bytes */
+   case STAT_WRITE:       /* Write (preparation) */
 
     ppos = (spir_state.state & STAT_PPMASK) >> STAT_PPSH;
-    if (ppos <  3U){
-     spir_state.addr |= data << ((2U - ppos) * 8U);
-     ppos ++;
-     spir_state.state = STAT_WRITE | (ppos << STAT_PPSH);
-    }else{
-     spir_state.ram[spir_state.addr & 0x1FFFFU] = data;
-     if       (spir_state.mode == 0x80U){ /* Page mode */
-      spir_state.addr = (spir_state.addr & 0x1FFE0U) +
-                        ((spir_state.addr + 1U) & 0x1FU);
-     }else if (spir_state.mode == 0x40U){ /* Sequential mode */
-      spir_state.addr ++;
-     }else{}
+    spir_state.addr |= data << ((2U - ppos) * 8U);
+    ppos ++;
+    spir_state.state = STAT_WRITE | (ppos << STAT_PPSH);
+    if (ppos == 3U){
+     spir_state.state = STAT_WRITEB;
     }
+    break;
+
+   case STAT_WRITEB:      /* Write (data bytes) */
+
+    spir_state.ram[spir_state.addr & 0x1FFFFU] = data;
+    if       (spir_state.mode == 0x80U){ /* Page mode */
+     spir_state.addr = (spir_state.addr & 0x1FFE0U) +
+                       ((spir_state.addr + 1U) & 0x1FU);
+    }else if (spir_state.mode == 0x40U){ /* Sequential mode */
+     spir_state.addr ++;
+    }else{}
     break;
 
    case STAT_RMODE:       /* Read mode register */
@@ -170,7 +189,7 @@ void  cu_spir_send(auint data, auint cycle)
     spir_state.state = STAT_SINK;
     break;
 
-   case STAT_SINK:        /* Sinking data until CS is deasserted */
+   default:               /* Sinking data until CS is deasserted */
 
     break;
 
