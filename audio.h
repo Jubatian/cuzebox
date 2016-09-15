@@ -44,15 +44,21 @@ boole audio_init(void);
 
 
 /*
+** Resets audio, call it along with the start of emulation.
+*/
+void  audio_reset(void);
+
+
+/*
 ** Tears down audio (if initialization succeed)
 */
 void  audio_quit(void);
 
 
 /*
-** Send a frame (262 unsigned 8 bit samples) to the audio device.
+** Send a frame (unsigned 8 bit samples) to the audio device.
 */
-void  audio_sendframe(uint8 const* samples);
+void  audio_sendframe(uint8 const* samples, auint len);
 
 
 #endif

@@ -58,7 +58,7 @@
 #define AUDIO_FILL     ((AUDIO_OUT_SIZE / 3U) * 2U)
 
 /* Ring buffer size, must be a power of 2 (15.7KHz Uzebox samples) */
-#define AUDIO_BUF_SIZE (AUDIO_OUT_SIZE * 4U)
+#define AUDIO_BUF_SIZE (AUDIO_OUT_SIZE * 2U)
 
 
 /* Ring buffer of samples */
@@ -81,6 +81,9 @@ static auint audio_pbrem[31];
 /* Previous remaining samples average count for differential correction */
 static auint audio_pbrav;
 
+/* First run after reset mark (to reset in sync) */
+static boole audio_frun;
+
 
 
 /*
@@ -89,10 +92,34 @@ static auint audio_pbrav;
 void audio_callback(void* dummy, Uint8* stream, int len)
 {
  auint i;
- auint brem = (audio_buf_w - audio_buf_r) & (AUDIO_BUF_SIZE - 1U);
- auint brav = brem;
- boole tbd  = FALSE;
+ auint brem;
+ auint brav;
+ boole tbd;
 
+ /* If this is the first run, init */
+
+ if (audio_frun){
+  audio_buf_r = 0U;
+  audio_buf_w = AUDIO_FILL;
+  audio_inc   = AUDIO_INC_P;
+  audio_frac  = 0U;
+  audio_pbrav = audio_buf_w;
+  for (i = 0U; i < 31U; i++){ audio_pbrem[i] = audio_buf_w; }
+  memset(&(audio_buf[0]), 0x80U, sizeof(audio_buf));
+  audio_frun  = FALSE;
+ }
+
+ /* Calculate averaging buffer of remaining samples. If the buffer is empty,
+ ** ignore, assume no audio source, prevent scaling. */
+
+ tbd  = FALSE;
+ brem = (audio_buf_w - audio_buf_r) & (AUDIO_BUF_SIZE - 1U);
+ if (brem == 0U){
+  brav = AUDIO_FILL;
+ }else{
+  brav = brem;
+ }
+ brav = brem;
  for (i = 0U; i < 31U; i++){ brav += audio_pbrem[i]; }
  brav = (brav + 15U) >> 5;
 
@@ -145,7 +172,7 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  /* If there was a total buffer depletion, assume some transient problem and
  ** ignore it instead of scaling frequency to it. */
 
- if (tbd){ brem = (AUDIO_FILL / 8U) * 7U; }
+ if (tbd){ brem = AUDIO_FILL; }
 
  /* Finalize scaling state */
 
@@ -164,32 +191,37 @@ boole audio_init(void)
 {
  SDL_AudioSpec desired;
  SDL_AudioSpec dummy;
- auint         i;
 
- audio_buf_r = 0U;
- audio_buf_w = 262U * 4U;
- audio_inc   = AUDIO_INC_P;
- audio_frac  = 0U;
- audio_pbrav = audio_buf_w;
- for (i = 0U; i < 31U; i++){ audio_pbrem[i] = audio_buf_w; }
-
- memset(&(audio_buf[0]), 0x7FU, sizeof(audio_buf));
- memset(&desired, 0, sizeof(desired));
-
- desired.freq     = 48000U;
- desired.format   = AUDIO_U8;
- desired.callback = audio_callback;
- desired.channels = 1U;
- desired.samples  = AUDIO_OUT_SIZE;
-
- audio_dev = 1U;
- if (SDL_OpenAudio(&desired, &dummy) < 0){ audio_dev = 0U; }
  if (audio_dev == 0U){
-  return FALSE;
- }
- SDL_PauseAudio(0);
 
- return TRUE;
+  memset(&desired, 0, sizeof(desired));
+
+  desired.freq     = 48000U;
+  desired.format   = AUDIO_U8;
+  desired.callback = audio_callback;
+  desired.channels = 1U;
+  desired.samples  = AUDIO_OUT_SIZE;
+
+  audio_dev = 1U;
+  if (SDL_OpenAudio(&desired, &dummy) < 0){ audio_dev = 0U; }
+  if (audio_dev != 0U){ SDL_PauseAudio(1); }
+
+  audio_frun = TRUE;
+
+ }
+
+ return (audio_dev != 0U);
+}
+
+
+
+/*
+** Resets audio, call it along with the start of emulation.
+*/
+void  audio_reset(void)
+{
+ audio_frun = TRUE;
+ if (audio_dev != 0U){ SDL_PauseAudio(0); }
 }
 
 
@@ -208,17 +240,17 @@ void  audio_quit(void)
 
 
 /*
-** Send a frame (262 unsigned 8 bit samples) to the audio device.
+** Send a frame (unsigned 8 bit samples) to the audio device.
 */
-void  audio_sendframe(uint8 const* samples)
+void  audio_sendframe(uint8 const* samples, auint len)
 {
  auint i;
  auint brem = (audio_buf_r - audio_buf_w) & (AUDIO_BUF_SIZE - 1U);
 
  if ( (brem != 0U) &&
-      (brem < 262U) ){ return; } /* Buffer full */
+      (brem < len) ){ return; } /* Buffer full */
 
- for (i = 0U; i < 262U; i++){
+ for (i = 0U; i < len; i++){
   audio_buf[audio_buf_w] = samples[i];
   audio_buf_w = (audio_buf_w + 1U) & (AUDIO_BUF_SIZE - 1U);
  }

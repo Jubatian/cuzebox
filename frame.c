@@ -32,8 +32,13 @@
 
 
 
+/* Maximal number of rows to process in a frame */
+#define MAX_ROWS 268U
+
+
+
 /* Collects audio data */
-static uint8 frame_audio[262];
+static uint8 frame_audio[MAX_ROWS];
 
 /* Fade-out memory accesses */
 static uint8 frame_memf[4096U];
@@ -200,10 +205,11 @@ static void frame_synrep(uint32* pix, auint ptc,
 
 /*
 ** Attempts to run a frame of emulation (262 display rows ending with a
-** CU_GET_FRAME result). Returns the last return of cu_avr_run() so it can be
-** acted upon as necessary. If no proper sync was generated, it returns as
-** soon as a GU_SYNCERR result is produced. If drop is TRUE, the render of the
-** frame is dropped which can be used to help slow targets.
+** CU_GET_FRAME result). If no proper sync was generated, it still attempts
+** to get about a frame worth of lines. If drop is TRUE, the render of the
+** frame is dropped which can be used to help slow targets. Returns the
+** number of rows generated, which is also the number of samples within the
+** audio buffer (normally 262).
 */
 auint frame_run(boole drop)
 {
@@ -233,16 +239,14 @@ auint frame_run(boole drop)
 
  row = 0U;
 
- do{
+ while (row < MAX_ROWS){
 
   ret = cu_avr_run();
 
   if ((ret & CU_GET_ROW) != 0U){
 
    erowd = cu_avr_get_row();
-   if (row < 262U){
-    frame_audio[row] = (uint8)(erowd->sample);
-   }
+   frame_audio[row] = (uint8)(erowd->sample);
    if ( ((erowd->pno) >  18U) &&
         ((erowd->pno) < 246U) &&
         (!drop) ){
@@ -255,15 +259,13 @@ auint frame_run(boole drop)
    }
    row ++;
 
-   if ((ret & CU_SYNCERR) != 0U){ /* Still attempt to get rows if possible */
-    if (row < 272U){
-     ret &= ~CU_SYNCERR;          /* Ignore sync error (will show on sync bars in some manner) */
-    }
-   }
-
   }
 
- }while ((ret & (CU_SYNCERR | CU_GET_FRAME)) == 0U);
+  if ((ret & CU_GET_FRAME) != 0U){ break; }
+
+ }
+
+ ret = row;
 
  /* Manage the audio result */
 
@@ -275,7 +277,7 @@ auint frame_run(boole drop)
  }else{
   i = 0U;
  }
- while (row < 262U){
+ while (row < MAX_ROWS){
   frame_audio[row] = i;
   row ++;
  }
@@ -284,7 +286,7 @@ auint frame_run(boole drop)
  ** didn't produce any audio yet. */
 
  i = 0U;
- for (row = 0U; row < 262U; row ++){
+ for (row = 0U; row < MAX_ROWS; row ++){
   i += frame_audio[row];
  }
  if (i == 0U){ frame_isauz = TRUE; }
@@ -294,7 +296,7 @@ auint frame_run(boole drop)
  ** output). */
 
  if (frame_isauz){
-  for (row = 0U; row < 262U; row ++){
+  for (row = 0U; row < MAX_ROWS; row ++){
    if (frame_audio[row] != 0U){ break; } /* Audio output starts */
    frame_audio[row] = 0x80U;
   }
@@ -380,7 +382,7 @@ auint frame_run(boole drop)
 
 
 /*
-** Returns the 262 received unsigned audio samples of the frame.
+** Returns the received unsigned audio samples of the frame (normally 262).
 */
 uint8 const* frame_getaudio(void)
 {

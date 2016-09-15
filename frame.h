@@ -38,16 +38,17 @@
 
 /*
 ** Attempts to run a frame of emulation (262 display rows ending with a
-** CU_GET_FRAME result). Returns the last return of cu_avr_run() so it can be
-** acted upon as necessary. If no proper sync was generated, it returns as
-** soon as a GU_SYNCERR result is produced. If drop is TRUE, the render of the
-** frame is dropped which can be used to help slow targets.
+** CU_GET_FRAME result). If no proper sync was generated, it still attempts
+** to get about a frame worth of lines. If drop is TRUE, the render of the
+** frame is dropped which can be used to help slow targets. Returns the
+** number of rows generated, which is also the number of samples within the
+** audio buffer (normally 262).
 */
 auint frame_run(boole drop);
 
 
 /*
-** Returns the 262 received unsigned audio samples of the frame.
+** Returns the received unsigned audio samples of the frame (normally 262).
 */
 uint8 const* frame_getaudio(void);
 

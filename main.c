@@ -152,6 +152,7 @@ static void main_loop(void)
  auint favg;
  auint ccur;
  auint cdif;
+ auint rows;
  auint fdtmp = main_fdrop;
  boole fdrop = FALSE;
  boole eepch;
@@ -172,7 +173,9 @@ static void main_loop(void)
 
  if (drift > 0x80000000U){    /* Possibly too slow */
   if ((drift + 75U) > 0x80000000U){
-   drift = (auint)(0U) - 75U; /* Limit (throw away memory) */
+   if ((drift + 225U) > 0x80000000U){
+    drift = (auint)(0U) - 225U;  /* Limit (throw away memory) */
+   }
    if (fdtmp == 0U){ fdtmp = 30U; }
    if (fdtmp < 60U){ fdtmp ++; } /* Push frame drop request */
   }
@@ -213,8 +216,8 @@ static void main_loop(void)
 
  /* Go on with the frame's logic */
 
- (void)(frame_run(fdrop)); /* Don't care for return, it will be about a frame worth of emulation anyway */
- audio_sendframe(frame_getaudio());
+ rows = frame_run(fdrop);
+ audio_sendframe(frame_getaudio(), rows);
  guicore_update(fdrop);
 
  /* Check for EEPROM changes and save as needed */
@@ -349,6 +352,7 @@ int main (int argc, char** argv)
  cu_avr_reset();
  main_t5_cc = cu_avr_getcycle();
  main_ptick = SDL_GetTicks();
+ audio_reset();
 
 
 #ifdef __EMSCRIPTEN__

@@ -106,6 +106,9 @@ boole           eeprom_changed;
 /* EEPROM programming time base, assume ~1.75ms */
 #define EEPROM_EWR_TIM 50000U
 
+/* Maximal cycles in a video scanline (above which sync error is returned) */
+#define VIDEO_CY_MAX 1920U
+
 
 /* Flags in CU_IO_SREG */
 #define SREG_I  7U
@@ -652,7 +655,7 @@ static void  cu_avr_write_io(auint port, auint val)
           (video_pulsectr == 270U) ){ /* 0 - 251 & 270 are normal falls 1684 cycles after the rise */
       video_frame.pulse[video_pulsectr].fall = t0 - 1684U;
       video_rowflag = TRUE;      /* Trigger new row */
-      video_cycle   = 2000U;     /* Also flags new row */
+      video_cycle   = VIDEO_CY_MAX; /* Also flags new row */
      }else{
       switch (video_pulsectr){
        case 252U:
@@ -684,7 +687,7 @@ static void  cu_avr_write_io(auint port, auint val)
       }
       if ((video_pulsectr & 1U) != 0U){
        video_rowflag = TRUE;    /* Odd pulses trigger new row */
-       video_cycle   = 2000U;   /* Also flags new row */
+       video_cycle   = VIDEO_CY_MAX; /* Also flags new row */
       }
      }
 
@@ -1580,10 +1583,10 @@ auint cu_avr_run(void)
 
  video_rowflag = FALSE;
 
- while (video_cycle < 2000U){ /* Also signals proper row end */
+ while (video_cycle < VIDEO_CY_MAX){ /* Also signals proper row end */
   cu_avr_exec();       /* Note: This inlines as only this single call exists */
  }
- video_cycle -= 2000U; /* Next line pixels */
+ video_cycle -= VIDEO_CY_MAX; /* Next line pixels */
 
  if (video_rowflag){
 
