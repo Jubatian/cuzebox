@@ -150,7 +150,7 @@ void  cu_spisd_reset(auint cycle)
  sd_state.ena   = FALSE;
  sd_state.enac  = cycle;
  sd_state.state = STAT_UNINIT;
- sd_state.next  = 0U;
+ sd_state.next  = cycle;
  sd_state.recvc = cycle;
  sd_state.evcnt = 0U;
  sd_state.cmd   = 0U;
@@ -230,7 +230,7 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case PSTAT_W24PREP:   /* CMD24 Write wait for data token */
-   if (sd_state.ppos > 1U){
+   if (sd_state.ppos != 0U){
     if (data == 0xFEU){ /* Data token */
      sd_state.pstat = PSTAT_W24DATA;
      sd_state.ppos  = 0U;
@@ -256,21 +256,21 @@ void  cu_spisd_send(auint data, auint cycle)
    sd_state.ppos  ++;
    if (sd_state.ppos == 2U){
     sd_state.pstat = PSTAT_WBUSY;
-    sd_state.next  = WRITE_T * SPI_1MS;
+    sd_state.next  = WRAP32(cycle + (WRITE_T * SPI_1MS));
     sd_state.data  = 0x05U; /* Data response token: Accepted. */
    }
    write = TRUE;
    break;
 
   case PSTAT_W25PREP:   /* CMD25 Write wait for data token */
-   if (sd_state.ppos > 1U){
+   if (sd_state.ppos != 0U){
     if (data == 0xFCU){    /* Data token */
      sd_state.pstat = PSTAT_W25DATA;
      sd_state.ppos  = 0U;
     }else{
      if (data == 0xFDU){   /* Stop transmission */
       sd_state.pstat = PSTAT_WBUSY;
-      sd_state.next  = WRITE_T * SPI_1MS;
+      sd_state.next  = WRAP32(cycle + (WRITE_T * SPI_1MS));
      }
     }
    }else{
@@ -301,7 +301,7 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case PSTAT_WBUSY:     /* Busy after the end of writes */
-   if (WRAP32(sd_state.next - cycle) > 0x80000000U){ /* Done */
+   if (WRAP32(sd_state.next - cycle) >= 0x80000000U){ /* Done */
     sd_state.pstat = PSTAT_IDLE;
    }else{
     if (sd_state.ena){  /* Only pulls it low if Chip Select is enabled */
@@ -476,7 +476,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
       case  1U: /* Initiate initialization (bypassing CMD8 - ACMD41) */
        sd_state.state = STAT_IINIT;
-       sd_state.next  = SPI_1MS * SD_INIMS;
+       sd_state.next  = WRAP32(cycle + (SPI_1MS * SD_INIMS));
        break;
 
       case  8U: /* Send Interface Condition */
@@ -501,7 +501,7 @@ void  cu_spisd_send(auint data, auint cycle)
        if ( (sd_state.state == STAT_VERIFIED) &&
             ((sd_state.crarg & 0xBF00FFFFU) == 0U) ){
         sd_state.state = STAT_IINIT;
-        sd_state.next  = SPI_1MS * SD_INIMS;
+        sd_state.next  = WRAP32(cycle + (SPI_1MS * SD_INIMS));
        }else{
         sd_state.r1 |= R1_ILL;
        }
@@ -538,7 +538,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
       case  1U: /* Initiate initialization */
       case (41U | SCMD_A):
-       if (WRAP32(sd_state.next - cycle) > 0x80000000U){ /* Initialized */
+       if (WRAP32(sd_state.next - cycle) >= 0x80000000U){ /* Initialized */
         sd_state.state = STAT_AVAIL;
        }else{
         sd_state.r1 |= R1_IDLE;
@@ -671,8 +671,8 @@ void  cu_spisd_send(auint data, auint cycle)
 
  }
 
-/* printf("%08X (r: %08X); SD Send: Ena: %u, Byte: %02X, %02X, Stat: %u, Cmd: %03X, PPos: %3u\n",
-**     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.data, sd_state.state, sd_state.cmd, sd_state.ppos);
+/* printf("%08X (r: %08X); SD: Ena: %u, Byte: %02X, %02X, Stat: %u, PSta: %u, Cmd: %03X, PPos: %3u\n",
+**     cycle, sd_state.recvc, (auint)(sd_state.ena), data, sd_state.data, sd_state.state, sd_state.pstat, sd_state.cmd, sd_state.ppos);
 */
 
 }
