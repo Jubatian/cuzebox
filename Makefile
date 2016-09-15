@@ -54,6 +54,9 @@ OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/frame.o
 OBJECTS += $(OBD)/eepdump.o
+ifeq ($(ENABLE_VCAP), 1)
+OBJECTS += $(OBD)/avconv.o
+endif
 ifeq ($(TSYS),emscripten)
 ROMFILE  = gamefile.uze
 else
@@ -120,6 +123,9 @@ $(OBD)/frame.o: frame.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/eepdump.o: eepdump.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
+
+$(OBD)/avconv.o: avconv.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
 

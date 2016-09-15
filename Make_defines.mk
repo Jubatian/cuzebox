@@ -54,6 +54,7 @@ endif
 ifeq ($(TSYS),linux)
 CFLAGS+= -DTARGET_LINUX
 LINKB= -lSDL2
+ENABLE_VCAP=$(FLAG_VCAP)
 endif
 #
 #
@@ -63,6 +64,7 @@ ifeq ($(TSYS),windows_mingw)
 OUT=cuzebox.exe
 CFLAGS+= -DTARGET_WINDOWS_MINGW -Dmain=SDL_main
 LINKB= -lmingw32 -lSDL2main -lSDL2 -mwindows
+ENABLE_VCAP=$(FLAG_VCAP)
 endif
 #
 #
@@ -72,6 +74,7 @@ ifeq ($(TSYS),emscripten)
 OUT=cuzebox.html
 CFLAGS+= -DTARGET_EMSCRIPTEN -DUSE_SDL1 -s USE_SDL=1 -s NO_EXIT_RUNTIME=1 -s NO_DYNAMIC_EXECUTION=1
 LINKB= --preload-file gamefile.uze
+ENABLE_VCAP=0
 endif
 #
 #
@@ -102,6 +105,9 @@ LINKB?=
 LINK= $(LINKB)
 OUT?=cuzebox
 CC=$(CCOMP)
+ifeq ($(ENABLE_VCAP),1)
+CFLAGS+= -DENABLE_VCAP
+endif
 
 OBD=_obj_
 

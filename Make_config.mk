@@ -61,3 +61,9 @@ CC_LIB=
 # symbols enabled.
 #
 GO=
+#
+#
+# Should the video capture feature be built in? Note that it requires ffmpeg
+# and it is not possible to have it in the Emscripten build.
+#
+FLAG_VCAP=0

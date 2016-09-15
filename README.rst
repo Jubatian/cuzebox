@@ -40,6 +40,8 @@ Currently only Player 1's SNES controller is added, as follows:
 - S: Button A
 - Enter: Select
 - Space: Start
+- Left shift: Left shift
+- Right shift: Right shift
 
 The emulator itself can be controlled with the following keys:
 
@@ -47,6 +49,7 @@ The emulator itself can be controlled with the following keys:
 - F2: Toggle "small" display (faster, but more blurry if resized)
 - F3: Toggle debug informations (slightly faster with them off)
 - F4: Toggle frame rate limiter
+- F5: Toggle video capture (only if built in)
 - F11: Toggle full screen
 
 If you want to see how fast the AVR core can possibly run, turn off debug

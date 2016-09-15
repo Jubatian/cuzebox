@@ -36,6 +36,9 @@
 #include "audio.h"
 #include "frame.h"
 #include "eepdump.h"
+#ifdef ENABLE_VCAP
+#include "avconv.h"
+#endif
 
 
 
@@ -83,6 +86,9 @@ static boole main_peepch = FALSE;
 
 /* Default game to start without parameters */
 static const char* main_game = "gamefile.uze";
+
+/* Whether video capturing is enabled */
+static boole main_isvcap = FALSE;
 
 
 
@@ -305,6 +311,10 @@ static void main_loop(void)
      }
      break;
 
+    case SDLK_F5:
+     main_isvcap = !main_isvcap;
+     break;
+
     default:
      break;
    }
@@ -315,9 +325,15 @@ static void main_loop(void)
  /* Go on with the frame's logic. Does it here so the SDL_GetTicks() on the
  ** top of the loop is as close to the render's end as reasonably possible. */
 
- rows = frame_run(fdrop);
+ rows = frame_run(fdrop && (!main_isvcap));
  audio_sendframe(frame_getaudio(), rows);
  guicore_update(fdrop);
+
+#ifdef ENABLE_VCAP
+ if (main_isvcap){
+  avconv_push(frame_getaudio(), rows);
+ }
+#endif
 }
 
 
@@ -375,6 +391,9 @@ int main (int argc, char** argv)
  audio_quit();
  guicore_quit();
  filesys_flushall();
+#ifdef ENABLE_VCAP
+ avconv_finalize();
+#endif
 #endif
 
  return 0;
