@@ -132,6 +132,12 @@ static void main_setctr(SDL_Event const* ev)
    case SDLK_SPACE:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_START, press);
     break;
+   case SDLK_LSHIFT:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LSH, press);
+    break;
+   case SDLK_RSHIFT:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RSH, press);
+    break;
    default:
     break;
   }
