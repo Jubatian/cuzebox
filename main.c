@@ -171,13 +171,15 @@ static void main_loop(void)
 
  /* Handle divergences */
 
- if (drift > 0x80000000U){    /* Possibly too slow */
-  if ((drift + 75U) > 0x80000000U){
-   if ((drift + 225U) > 0x80000000U){
-    drift = (auint)(0U) - 225U;  /* Limit (throw away memory) */
+ if (drift >= 0x80000000U){   /* Possibly too slow */
+  if ((drift + 5U) >= 0x80000000U){   /* Transient problem (late by at least 1 frame) */
+   if ((drift + 75U) >= 0x80000000U){ /* Permanent problem (late by several frames) */
+    if ((drift + 225U) >= 0x80000000U){
+     drift = (auint)(0U) - 225U;      /* Limit (throw away memory) */
+    }
+    if (fdtmp < 30U){ fdtmp = 30U; }  /* Semi-permanently limit frame rate */
    }
-   if (fdtmp == 0U){ fdtmp = 30U; }
-   if (fdtmp < 60U){ fdtmp ++; } /* Push frame drop request */
+   if (fdtmp < 60U){ fdtmp ++; }      /* Push frame drop request */
   }
  }else{                       /* Possibly too fast */
   if (fdtmp != 0U){ fdtmp --; }  /* Eat away frame drop request */
@@ -213,12 +215,6 @@ static void main_loop(void)
    main_tdrift --;
   }else{}
  }
-
- /* Go on with the frame's logic */
-
- rows = frame_run(fdrop);
- audio_sendframe(frame_getaudio(), rows);
- guicore_update(fdrop);
 
  /* Check for EEPROM changes and save as needed */
 
@@ -309,6 +305,13 @@ static void main_loop(void)
 
   }
  }
+
+ /* Go on with the frame's logic. Does it here so the SDL_GetTicks() on the
+ ** top of the loop is as close to the render's end as reasonably possible. */
+
+ rows = frame_run(fdrop);
+ audio_sendframe(frame_getaudio(), rows);
+ guicore_update(fdrop);
 }
 
 
