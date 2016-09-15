@@ -305,6 +305,33 @@ static void cu_vfat_tohost(uint8 const* src, char* dest)
 
 
 /*
+** Checks if a given file in the FAT16 filesystem has a proper host file
+** assigned. If not, create the assignment by converting the FAT16 filename.
+** This function allows creating new files from the emulator.
+*/
+static void cu_vfat_checkassign(auint id)
+{
+ auint fch;
+
+ if (id >= CU_VFAT_ROOT_SIZE){ return; }
+
+ if (vfat_state.hnames[id][0] == 0){ /* Need a host file name */
+
+  fch = vfat_state.sys[0x040200U + (id * 32U)];
+  if ( (fch != 0x00U) &&
+       (fch != 0x2EU) &&
+       (fch != 0xE5U) ){ /* Only if the first character identifies valid file */
+
+   cu_vfat_tohost(&(vfat_state.sys[0x040200U + (id * 32U)]), &(vfat_state.hnames[id][0]));
+
+  }
+
+ }
+}
+
+
+
+/*
 ** Resets the virtual filesystem. This requests it building new filesystem
 ** structures according to the underlaying source.
 */
@@ -417,6 +444,7 @@ auint cu_vfat_read(auint pos)
 
   if (fid != CU_VFAT_ROOT_SIZE){
    if (fid != vfat_lfile){
+    cu_vfat_checkassign(fid); /* Maybe a not yet assigned file */
     filesys_open(FILESYS_CH_SD, &(vfat_state.hnames[fid][0]));
     vfat_lfile = fid;
    }
@@ -441,6 +469,35 @@ auint cu_vfat_read(auint pos)
 */
 void  cu_vfat_write(auint pos, auint data)
 {
+ auint fid;
+ auint fpos;
+
+ /* System area */
+
+ if (pos < CU_VFAT_SYS_SIZE){
+  vfat_state.sys[pos] = data;
+  vfat_broken = FALSE;      /* Allow for repairing the FAT */
+  return;
+ }
+
+ /* Data area */
+
+ vfat_state.rwbuf[pos & 0x1FFU] = data;
+
+ if ((pos & 0x1FFU) == 0x1FFU){ /* Last byte of sector: Write it */
+
+  fid = cu_vfat_findbypos(pos, &fpos);
+  if (fid != CU_VFAT_ROOT_SIZE){
+   if (fid != vfat_lfile){
+    cu_vfat_checkassign(fid); /* Maybe a not yet assigned file */
+    filesys_open(FILESYS_CH_SD, &(vfat_state.hnames[fid][0]));
+    vfat_lfile = fid;
+   }
+   filesys_setpos(FILESYS_CH_SD, fpos);
+   filesys_write(FILESYS_CH_SD, &(vfat_state.rwbuf[0]), 512U);
+  }
+
+ }
 }
 
 
