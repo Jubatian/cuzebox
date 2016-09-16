@@ -66,8 +66,9 @@ static cu_state_spir_t spir_state;
 void  cu_spir_reset(auint cycle)
 {
  memset(&spir_state, 0, sizeof(spir_state));
- spir_state.mode = 0x40U; /* Sequential mode */
- spir_state.data = 0xFFU;
+ spir_state.mode  = 0x40U; /* Sequential mode */
+ spir_state.data  = 0xFFU;
+ spir_state.state = STAT_IDLE;
 }
 
 
@@ -112,9 +113,9 @@ void  cu_spir_send(auint data, auint cycle)
   return;
  }
 
- /* Normal SPI RAM processing (excluding processing reads) */
-
  spir_state.data = 0xFFU; /* Default data out */
+
+ /* Normal SPI RAM processing (excluding processing reads) */
 
  if (spir_state.ena){     /* Good, this only tampers with the bus if actually enabled (unlike the SD card...) */
 
