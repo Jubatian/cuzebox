@@ -29,6 +29,7 @@
 
 #include "cu_avr.h"
 #include "cu_avrc.h"
+#include "cu_avrdf.h"
 #include "cu_ctr.h"
 #include "cu_spi.h"
 
@@ -1485,6 +1486,164 @@ skip_tail:
                                  cpu_state.iors[CU_IO_DDRC];
    goto cy1_tail;
 
+  case 0x4AU: /* ZSBC */
+   cpu_state.iors[arg1] -= cpu_state.iors[arg2] + SREG_GET_C(cpu_state.iors[CU_IO_SREG]);
+   goto cy1_tail;
+
+  case 0x4BU: /* ZADD */
+   cpu_state.iors[arg1] += cpu_state.iors[arg2];
+   goto cy1_tail;
+
+  case 0x4CU: /* ZSUB */
+   cpu_state.iors[arg1] -= cpu_state.iors[arg2];
+   goto cy1_tail;
+
+  case 0x4DU: /* ZADC */
+   cpu_state.iors[arg1] += cpu_state.iors[arg2] + SREG_GET_C(cpu_state.iors[CU_IO_SREG]);
+   goto cy1_tail;
+
+  case 0x4EU: /* ZAND */
+   cpu_state.iors[arg1] &= cpu_state.iors[arg2];
+   goto cy1_tail;
+
+  case 0x4FU: /* ZEOR */
+   cpu_state.iors[arg1] ^= cpu_state.iors[arg2];
+   goto cy1_tail;
+
+  case 0x50U: /* ZOR */
+   cpu_state.iors[arg1] |= cpu_state.iors[arg2];
+   goto cy1_tail;
+
+  case 0x51U: /* ZSBCI */
+   cpu_state.iors[arg1] -= arg2 + SREG_GET_C(cpu_state.iors[CU_IO_SREG]);
+   goto cy1_tail;
+
+  case 0x52U: /* ZSUBI */
+   cpu_state.iors[arg1] -= arg2;
+   goto cy1_tail;
+
+  case 0x53U: /* ZORI */
+   cpu_state.iors[arg1] |= arg2;
+   goto cy1_tail;
+
+  case 0x54U: /* ZANDI */
+   cpu_state.iors[arg1] &= arg2;
+   goto cy1_tail;
+
+  case 0x55U: /* ZASR */
+   cpu_state.iors[arg1]  = (cpu_state.iors[arg1] >> 1) | (cpu_state.iors[arg1] & 0x80U);
+   goto cy1_tail;
+
+  case 0x56U: /* ZLSR */
+   cpu_state.iors[arg1]  = (cpu_state.iors[arg1] >> 1);
+   goto cy1_tail;
+
+  case 0x57U: /* ZROR */
+   cpu_state.iors[arg1]  = (cpu_state.iors[arg1] >> 1) | (SREG_GET_C(cpu_state.iors[CU_IO_SREG]) << 7);
+   goto cy1_tail;
+
+  case 0x58U: /* HCPC */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = cpu_state.iors[arg2];
+   res   = dst - src - SREG_GET_C(flags);
+   goto hsub_zc_tail;
+
+  case 0x59U: /* HSBC */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = cpu_state.iors[arg2];
+   res   = dst - src - SREG_GET_C(flags);
+   cpu_state.iors[arg1] = res;
+   goto hsub_zc_tail;
+
+  case 0x5AU: /* HADD */
+   flags = cpu_state.iors[CU_IO_SREG];
+   res   = 0U;
+   goto hadd_tail;
+
+  case 0x5BU: /* HCP */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = cpu_state.iors[arg2];
+   res   = dst - src;
+   goto hsub_tail;
+
+  case 0x5CU: /* HSUB */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = cpu_state.iors[arg2];
+   res   = dst - src;
+   cpu_state.iors[arg1] = res;
+   goto hsub_tail;
+
+  case 0x5DU: /* HADC */
+   flags = cpu_state.iors[CU_IO_SREG];
+   res   = SREG_GET_C(flags);
+hadd_tail:
+   dst   = cpu_state.iors[arg1];
+   src   = cpu_state.iors[arg2];
+   res  += dst + src;
+   SREG_CLR(flags, SREG_CM | SREG_ZM);
+   SREG_SET_C_BIT8(flags, res);
+   SREG_SET_Z(flags, res & 0xFFU);
+   cpu_state.iors[arg1] = res;
+   cpu_state.iors[CU_IO_SREG] = flags;
+   goto cy1_tail;
+
+  case 0x5EU: /* HCPI */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = arg2;
+   res   = dst - src;
+   goto hsub_tail;
+
+  case 0x5FU: /* HSBCI */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = arg2;
+   res   = dst - src - SREG_GET_C(flags);
+   cpu_state.iors[arg1] = res;
+hsub_zc_tail:
+   SREG_CLR(flags, SREG_CM);
+   SREG_SET_C_BIT8(flags, res);
+   SREG_CLR_Z(flags, res & 0xFFU);
+   cpu_state.iors[CU_IO_SREG] = flags;
+   goto cy1_tail;
+
+  case 0x60U: /* HSUBI */
+   flags = cpu_state.iors[CU_IO_SREG];
+   dst   = cpu_state.iors[arg1];
+   src   = arg2;
+   res   = dst - src;
+   cpu_state.iors[arg1] = res;
+hsub_tail:
+   SREG_CLR(flags, SREG_CM | SREG_ZM);
+   SREG_SET_C_BIT8(flags, res);
+   SREG_SET_Z(flags, res & 0xFFU);
+   cpu_state.iors[CU_IO_SREG] = flags;
+   goto cy1_tail;
+
+  case 0x61U: /* HINC */
+   flags = cpu_state.iors[CU_IO_SREG];
+   res   = cpu_state.iors[arg1];
+   res ++;
+   SREG_CLR(flags, SREG_ZM);
+   SREG_SET_Z(flags, res & 0xFFU);
+   cpu_state.iors[arg1] = res;
+   cpu_state.iors[CU_IO_SREG] = flags;
+   goto cy1_tail;
+
+  case 0x62U: /* HDEC */
+   flags = cpu_state.iors[CU_IO_SREG];
+   res   = cpu_state.iors[arg1];
+   res --;
+   SREG_CLR(flags, SREG_ZM);
+   SREG_SET_Z(flags, res & 0xFFU);
+   cpu_state.iors[arg1] = res;
+   cpu_state.iors[CU_IO_SREG] = flags;
+   goto cy1_tail;
+
   default:
    /* Undefined op. error here, implement! */
    goto cy1_tail;
@@ -1563,7 +1722,7 @@ void  cu_avr_reset(void)
  cpu_state.eep_prge = FALSE;
  cpu_state.eep_wrte = FALSE;
 
- cu_avr_crom_update(0U, 65536U);
+ cu_avr_crom_update();
  cu_avr_io_update();
 
  cu_ctr_reset();
@@ -1705,26 +1864,22 @@ cu_state_cpu_t* cu_avr_get_state(void)
 
 
 /*
-** Updates a section of the Code ROM. This must be called after writing into
-** the Code ROM so the emulator recompiles the affected instructions. The
-** "base" and "len" parameters specify the range to update in bytes.
+** Updates the Code ROM. This must be called after writing into the Code ROM
+** so the emulator recompiles the affected instructions.
 */
-void  cu_avr_crom_update(auint base, auint len)
+void  cu_avr_crom_update(void)
 {
- auint wbase = base >> 1;
- auint wlen  = (len + (base & 1U) + 1U) >> 1;
  auint i;
 
- if (wbase > 0x7FFFU){ wbase = 0x7FFFU; }
- if ((wbase + wlen) > 0x8000U){ wlen = 0x8000U - wbase; }
-
- for (i = wbase; i < wlen; i++){
+ for (i = 0U; i < 0x8000U; i++){
   cpu_code[i] = cu_avrc_compile(
       ((auint)(cpu_state.crom[((i << 1) + 0U) & 0xFFFFU])     ) |
       ((auint)(cpu_state.crom[((i << 1) + 1U) & 0xFFFFU]) << 8),
       ((auint)(cpu_state.crom[((i << 1) + 2U) & 0xFFFFU])     ) |
       ((auint)(cpu_state.crom[((i << 1) + 3U) & 0xFFFFU]) << 8) );
  }
+
+ cu_avrdf_deflag(&(cpu_code[0]));
 }
 
 

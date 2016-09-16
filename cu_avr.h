@@ -107,11 +107,10 @@ cu_state_cpu_t* cu_avr_get_state(void);
 
 
 /*
-** Updates a section of the Code ROM. This must be called after writing into
-** the Code ROM so the emulator recompiles the affected instructions. The
-** "base" and "len" parameters specify the range to update in bytes.
+** Updates the Code ROM. This must be called after writing into the Code ROM
+** so the emulator recompiles the affected instructions.
 */
-void  cu_avr_crom_update(auint base, auint len);
+void  cu_avr_crom_update(void);
 
 
 /*

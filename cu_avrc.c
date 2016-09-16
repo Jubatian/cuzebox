@@ -31,7 +31,7 @@
 
 
 /* Undefined instruction */
-#define UNDEF 0x4AU
+#define UNDEF 0x7FU
 
 
 /*

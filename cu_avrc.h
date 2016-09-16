@@ -124,7 +124,34 @@
 ** 0x47: SBRS   Ar1(Reg),  Ar2(Imm8) (Note: AND on reg and checks zero)
 ** 0x48: LDI    Ar1(Reg),  Ar2(Imm8)
 ** 0x49: PIXEL  Ar2(Reg)  (Note: Special OUT)
-** 0x4A: UNDEF
+**
+** 0x4A: ZSBC   (SBC without flags)
+** 0x4B: ZADD   (ADD without flags)
+** 0x4C: ZSUB   (SUB without flags)
+** 0x4D: ZADC   (ADC without flags)
+** 0x4E: ZAND   (AND without flags)
+** 0x4F: ZEOR   (EOR without flags)
+** 0x50: ZOR    (OR without flags)
+** 0x51: ZSBCI  (SBCI without flags)
+** 0x52: ZSUBI  (SUBI without flags)
+** 0x53: ZORI   (ORI without flags)
+** 0x54: ZANDI  (ANDI without flags)
+** 0x55: ZASR   (ASR without flags)
+** 0x56: ZLSR   (LSR without flags)
+** 0x57: ZROR   (ROR without flags)
+** 0x58: HCPC   (CPC with only Z and C flags)
+** 0x59: HSBC   (SBC with only Z and C flags)
+** 0x5A: HADD   (ADD with only Z and C flags)
+** 0x5B: HCP    (CP with only Z and C flags)
+** 0x5C: HSUB   (SUB with only Z and C flags)
+** 0x5D: HADC   (ADC with only Z and C flags)
+** 0x5E: HCPI   (CPI with only Z and C flags)
+** 0x5F: HSBCI  (SBCI with only Z and C flags)
+** 0x60: HSUBI  (SUBI with only Z and C flags)
+** 0x61: HINC   (INC with only Z flag)
+** 0x62: HDEC   (DEC with only Z flag)
+**
+** 0x7F: UNDEF
 **
 ** 0x1C, 0x20, 0x2C and 0x2D are 2 word instructions, so these occur as 0x9C,
 ** 0xA0, 0xAC and 0xAD on the low 8 bits. This causes the subsequent opcode to
@@ -136,7 +163,7 @@
 ** instructions. Translating it to this special instruction makes emulation
 ** considerably faster.
 **
-** Including and above 0x4A all should be UNDEF.
+** Anything not explicitly mentioned should be UNDEF.
 */
 
 
