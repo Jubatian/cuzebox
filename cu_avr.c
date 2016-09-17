@@ -892,18 +892,16 @@ fmul_tail:
 
   case 0x07U: /* CPC */
    flags = cpu_state.iors[CU_IO_SREG];
-   dst   = cpu_state.iors[arg1];
    src   = cpu_state.iors[arg2] + SREG_GET_C(flags);
+   dst   = cpu_state.iors[arg1];
    res   = dst - src;
-   goto sub_zc_tail;
+   cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
+                                (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM));
+   goto cy1_tail;
 
   case 0x08U: /* SBC */
-   flags = cpu_state.iors[CU_IO_SREG];
-   dst   = cpu_state.iors[arg1];
-   src   = cpu_state.iors[arg2] + SREG_GET_C(flags);
-   res   = dst - src;
-   cpu_state.iors[arg1] = res;
-   goto sub_zc_tail;
+   src   = cpu_state.iors[arg2];
+   goto sbc_tail;
 
   case 0x09U: /* ADD */
    flags = cpu_state.iors[CU_IO_SREG];
@@ -917,14 +915,12 @@ fmul_tail:
    goto skip_tail;
 
   case 0x0BU: /* CP */
-   flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
    src   = cpu_state.iors[arg2];
    res   = dst - src;
    goto sub_tail;
 
   case 0x0CU: /* SUB */
-   flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
    src   = cpu_state.iors[arg2];
    res   = dst - src;
@@ -960,25 +956,24 @@ add_tail:
    goto cy1_tail;
 
   case 0x12U: /* CPI */
-   flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
    src   = arg2;
    res   = dst - src;
    goto sub_tail;
 
   case 0x13U: /* SBCI */
+   src   = arg2;
+sbc_tail:
    flags = cpu_state.iors[CU_IO_SREG];
+   src  += SREG_GET_C(flags);
    dst   = cpu_state.iors[arg1];
-   src   = arg2 + SREG_GET_C(flags);
    res   = dst - src;
    cpu_state.iors[arg1] = res;
-sub_zc_tail:
    cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
                                 (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM));
    goto cy1_tail;
 
   case 0x14U: /* SUBI */
-   flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
    src   = arg2;
    res   = dst - src;
@@ -1117,13 +1112,12 @@ ld_tail:
    goto cy1_tail;
 
   case 0x25U: /* NEG */
-   flags = cpu_state.iors[CU_IO_SREG];
    dst   = 0x00U;
    src   = cpu_state.iors[arg1];
    res   = dst - src;
    cpu_state.iors[arg1] = res;
 sub_tail:
-   cpu_state.iors[CU_IO_SREG] = (flags & (SREG_IM | SREG_TM)) |
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
                                 cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst];
    goto cy1_tail;
 
