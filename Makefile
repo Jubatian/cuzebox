@@ -44,6 +44,7 @@ OBJECTS += $(OBD)/cu_ufile.o
 OBJECTS += $(OBD)/cu_hfile.o
 OBJECTS += $(OBD)/cu_avr.o
 OBJECTS += $(OBD)/cu_avrc.o
+OBJECTS += $(OBD)/cu_avrfg.o
 OBJECTS += $(OBD)/cu_ctr.o
 OBJECTS += $(OBD)/cu_spi.o
 OBJECTS += $(OBD)/cu_spisd.o
@@ -93,6 +94,9 @@ $(OBD)/cu_avr.o: cu_avr.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/cu_avrc.o: cu_avrc.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
+
+$(OBD)/cu_avrfg.o: cu_avrfg.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
 $(OBD)/cu_ctr.o: cu_ctr.c $(DEPS)

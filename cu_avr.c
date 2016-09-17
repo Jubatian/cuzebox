@@ -29,6 +29,7 @@
 
 #include "cu_avr.h"
 #include "cu_avrc.h"
+#include "cu_avrfg.h"
 #include "cu_ctr.h"
 #include "cu_spi.h"
 
@@ -45,6 +46,12 @@ uint8           access_mem[4096U];
 
 /* Access info structure for I/O */
 uint8           access_io[256U];
+
+/* Precalculated flags */
+uint8           cpu_pflags[CU_AVRFG_SIZE];
+
+/* Whether the flags were already precalculated */
+boole           pflags_done = FALSE;
 
 /* Row generation structure */
 cu_row_t        video_row;
@@ -137,17 +144,8 @@ boole           eeprom_changed;
 /* Set flags by mask */
 #define SREG_SET(fl, xm) (fl |= (xm))
 
-/* Clear Zero if (at most) 16 bit "val" is nonzero */
-#define SREG_CLR_Z(fl, val) (fl &= (auint)(~((auint)(SREG_ZM))) | (((auint)(val) - 1U) >> 16))
-
 /* Set Zero if (at most) 16 bit "val" is zero */
 #define SREG_SET_Z(fl, val) (fl |= SREG_ZM & (((auint)(val) - 1U) >> 16))
-
-/* Set Carry by bit 0 (for right shifts) */
-#define SREG_SET_C_BIT0(fl, val) (fl |= (val) & 1U)
-
-/* Set Carry by bit 8 (for various adds & subs) */
-#define SREG_SET_C_BIT8(fl, val) (fl |= ((val) >> 8) & 1U)
 
 /* Set Carry by bit 15 (for multiplications) */
 #define SREG_SET_C_BIT15(fl, val) (fl |= ((val) >> 15) & 1U)
@@ -155,29 +153,8 @@ boole           eeprom_changed;
 /* Set Carry by bit 16 (for float multiplications and adiw & sbiw) */
 #define SREG_SET_C_BIT16(fl, val) (fl |= ((val) >> 16) & 1U)
 
-/* Set Half-Carry by bit 4 (for various adds & subs) */
-#define SREG_SET_H_BIT4(fl, val) (fl |= ((val) << 1) & 0x20U)
-
-/* Set Negative by bit 7 (for all ops updating N) */
-#define SREG_SET_N_BIT7(fl, val) (fl |= ((val) >> 5) & 0x04U)
-
-/* Set Overflow by bit 7 (for various adds & subs) */
-#define SREG_SET_V_BIT7(fl, val) (fl |= ((val) >> 4) & 0x08U)
-
-/* Set Overflow if value is 0x80U (for inc) */
-#define SREG_SET_V_80(fl, val) (fl |= SREG_VM & (((auint)(((val) - 0x80U) & 0xFFU) - 1U) >> 16))
-
-/* Set Overflow if value is 0x7FU (for dec) */
-#define SREG_SET_V_7F(fl, val) (fl |= SREG_VM & (((auint)(((val) - 0x7FU) & 0xFFU) - 1U) >> 16))
-
-/* Set S by bit 7 (used where it is more efficient than SREG_COM_NV) */
-#define SREG_SET_S_BIT7(fl, val) (fl |= ((val) >> 3) & 0x10U)
-
 /* Combine N and V into S (for all ops updating N or V) */
 #define SREG_COM_NV(fl) (fl |= (((fl) << 1) ^ ((fl) << 2)) & 0x10U)
-
-/* Set N, V and S for logical ops (where only N depends on the result's bit 7) */
-#define SREG_LOG_NVS(fl, val) (fl |= ((0x7FU - (auint)(val)) >> 8) & (SREG_SM | SREG_NM))
 
 /* Get carry flag (for carry overs) */
 #define SREG_GET_C(fl) ((fl) & 1U)
@@ -197,66 +174,6 @@ boole           eeprom_changed;
   SREG_CLR(fl, SREG_CM | SREG_ZM); \
   SREG_SET_C_BIT16(fl, res); \
   SREG_SET_Z(fl, res & 0xFFFFU); \
- }while(0)
-
-/* Macro for calculating an addition's flags, head & middle */
-#define PROCFLAGS_ADD(fl, dst, src, res, tmp) \
- do{ \
-  SREG_CLR(fl, SREG_CM | SREG_HM | SREG_SM | SREG_NM | SREG_VM | SREG_ZM); \
-  tmp = src ^ dst; \
-  SREG_SET_H_BIT4(fl, tmp ^ res); \
-  tmp = (~tmp) & (res ^ dst); \
-  SREG_SET_C_BIT8(fl, res); \
-  SREG_SET_N_BIT7(fl, res); \
-  SREG_SET_V_BIT7(fl, tmp); \
-  SREG_SET_S_BIT7(fl, tmp ^ res); \
-  SREG_SET_Z(fl, res & 0xFFU); \
- }while(0)
-
-/* Macro for calculating a subtraction's flags, normal head */
-#define PROCFLAGS_SUB_HEAD(fl, dst, src, res, tmp) \
- do{ \
-  SREG_CLR(fl, SREG_CM | SREG_HM | SREG_SM | SREG_NM | SREG_VM | SREG_ZM); \
-  SREG_SET_Z(fl, res & 0xFFU); \
- }while(0)
-
-/* Macro for calculating a subtraction's flags, zero clear head */
-#define PROCFLAGS_SUB_HEAD_ZC(fl, dst, src, res, tmp) \
- do{ \
-  SREG_CLR(fl, SREG_CM | SREG_HM | SREG_SM | SREG_NM | SREG_VM); \
-  SREG_CLR_Z(fl, res & 0xFFU); \
- }while(0)
-
-/* Macro for calculating a subtraction's flags, tail */
-#define PROCFLAGS_SUB_TAIL(fl, dst, src, res, tmp) \
- do{ \
-  tmp = src ^ dst; \
-  SREG_SET_H_BIT4(fl, tmp ^ res); \
-  tmp = tmp & (res ^ dst); \
-  SREG_SET_C_BIT8(fl, res); \
-  SREG_SET_N_BIT7(fl, res); \
-  SREG_SET_V_BIT7(fl, tmp); \
-  SREG_SET_S_BIT7(fl, tmp ^ res); \
- }while(0)
-
-/* Macro for calculating a logical op's flags */
-#define PROCFLAGS_LOG(fl, res) \
- do{ \
-  SREG_CLR(fl, SREG_SM | SREG_NM | SREG_VM | SREG_ZM); \
-  SREG_LOG_NVS(fl, res); \
-  SREG_SET_Z(fl, res); \
- }while(0)
-
-/* Macro for calculating a right shift's flags */
-#define PROCFLAGS_SHR(fl, src, res, tmp) \
- do{ \
-  SREG_CLR(fl, SREG_CM |SREG_SM | SREG_NM | SREG_VM | SREG_ZM); \
-  SREG_SET_C_BIT0(fl, src); \
-  tmp = (src << 7) ^ res; \
-  SREG_SET_V_BIT7(fl, tmp); \
-  SREG_SET_N_BIT7(fl, res); \
-  SREG_SET_S_BIT7(fl, tmp ^ res); \
-  SREG_SET_Z(fl, res); \
  }while(0)
 
 
@@ -976,21 +893,21 @@ fmul_tail:
   case 0x07U: /* CPC */
    flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
-   src   = cpu_state.iors[arg2];
-   res   = dst - src - SREG_GET_C(flags);
+   src   = cpu_state.iors[arg2] + SREG_GET_C(flags);
+   res   = dst - src;
    goto sub_zc_tail;
 
   case 0x08U: /* SBC */
    flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
-   src   = cpu_state.iors[arg2];
-   res   = dst - src - SREG_GET_C(flags);
+   src   = cpu_state.iors[arg2] + SREG_GET_C(flags);
+   res   = dst - src;
    cpu_state.iors[arg1] = res;
    goto sub_zc_tail;
 
   case 0x09U: /* ADD */
    flags = cpu_state.iors[CU_IO_SREG];
-   res   = 0U;
+   src   = 0U;
    goto add_tail;
 
   case 0x0AU: /* CPSE */
@@ -1016,14 +933,14 @@ fmul_tail:
 
   case 0x0DU: /* ADC */
    flags = cpu_state.iors[CU_IO_SREG];
-   res   = SREG_GET_C(flags);
+   src   = SREG_GET_C(flags);
 add_tail:
    dst   = cpu_state.iors[arg1];
-   src   = cpu_state.iors[arg2];
-   res  += dst + src;
-   PROCFLAGS_ADD(flags, dst, src, res, tmp);
+   src  += cpu_state.iors[arg2];
+   res   = dst + src;
    cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = flags;
+   cpu_state.iors[CU_IO_SREG] = (flags & (SREG_IM | SREG_TM)) |
+                                cpu_pflags[CU_AVRFG_ADD + (src << 8) + dst];
    goto cy1_tail;
 
   case 0x0EU: /* AND */
@@ -1052,12 +969,13 @@ add_tail:
   case 0x13U: /* SBCI */
    flags = cpu_state.iors[CU_IO_SREG];
    dst   = cpu_state.iors[arg1];
-   src   = arg2;
-   res   = dst - src - SREG_GET_C(flags);
+   src   = arg2 + SREG_GET_C(flags);
+   res   = dst - src;
    cpu_state.iors[arg1] = res;
 sub_zc_tail:
-   PROCFLAGS_SUB_HEAD_ZC(flags, dst, src, res, tmp);
-   goto sub_tail_zce;
+   cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
+                                (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM));
+   goto cy1_tail;
 
   case 0x14U: /* SUBI */
    flags = cpu_state.iors[CU_IO_SREG];
@@ -1074,10 +992,9 @@ sub_zc_tail:
   case 0x16U: /* ANDI */
    res   = cpu_state.iors[arg1] & arg2;
 log_tail:
-   flags = cpu_state.iors[CU_IO_SREG];
-   PROCFLAGS_LOG(flags, res);
    cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = flags;
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM | SREG_HM | SREG_CM)) |
+                                cpu_pflags[CU_AVRFG_LOG + res];
    goto cy1_tail;
 
   case 0x17U: /* SPM */
@@ -1193,12 +1110,10 @@ ld_tail:
    goto cy1_tail;
 
   case 0x24U: /* COM */
-   flags = cpu_state.iors[CU_IO_SREG];
    res   = cpu_state.iors[arg1] ^ 0xFFU;
-   SREG_SET(flags, SREG_CM);
-   PROCFLAGS_LOG(flags, res);
    cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = flags;
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM | SREG_HM)) |
+                                (cpu_pflags[CU_AVRFG_LOG + res] | SREG_CM);
    goto cy1_tail;
 
   case 0x25U: /* NEG */
@@ -1208,10 +1123,8 @@ ld_tail:
    res   = dst - src;
    cpu_state.iors[arg1] = res;
 sub_tail:
-   PROCFLAGS_SUB_HEAD(flags, dst, src, res, tmp);
-sub_tail_zce:
-   PROCFLAGS_SUB_TAIL(flags, dst, src, res, tmp);
-   cpu_state.iors[CU_IO_SREG] = flags;
+   cpu_state.iors[CU_IO_SREG] = (flags & (SREG_IM | SREG_TM)) |
+                                cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst];
    goto cy1_tail;
 
   case 0x26U: /* SWAP */
@@ -1220,12 +1133,12 @@ sub_tail_zce:
    goto cy1_tail;
 
   case 0x27U: /* INC */
-   flags = cpu_state.iors[CU_IO_SREG];
    res   = cpu_state.iors[arg1];
    res ++;
-   SREG_CLR(flags, SREG_SM | SREG_NM | SREG_VM | SREG_ZM);
-   SREG_SET_V_80(flags, res);
-   goto idc_tail;
+   cpu_state.iors[arg1] = res;
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM | SREG_HM | SREG_CM)) |
+                                cpu_pflags[CU_AVRFG_INC + (res & 0xFFU)];
+   goto cy1_tail;
 
   case 0x28U: /* ASR */
    flags = cpu_state.iors[CU_IO_SREG];
@@ -1245,23 +1158,17 @@ sub_tail_zce:
    res   = (SREG_GET_C(flags) << 7);
 shr_tail:
    res  |= (src >> 1);
-   PROCFLAGS_SHR(flags, src, res, tmp);
    cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = flags;
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM | SREG_HM)) |
+                                cpu_pflags[CU_AVRFG_SHR + ((src & 1U) << 8) + res];
    goto cy1_tail;
 
   case 0x2BU: /* DEC */
-   flags = cpu_state.iors[CU_IO_SREG];
    res   = cpu_state.iors[arg1];
    res --;
-   SREG_CLR(flags, SREG_SM | SREG_NM | SREG_VM | SREG_ZM);
-   SREG_SET_V_7F(flags, res);
-idc_tail:
-   SREG_SET_N_BIT7(flags, res);
-   SREG_COM_NV(flags);
-   SREG_SET_Z(flags, res & 0xFFU);
    cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = flags;
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM | SREG_HM | SREG_CM)) |
+                                cpu_pflags[CU_AVRFG_DEC + (res & 0xFFU)];
    goto cy1_tail;
 
   case 0x2CU: /* JMP */
@@ -1562,6 +1469,11 @@ void  cu_avr_reset(void)
  cpu_state.wd_end   = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
  cpu_state.eep_prge = FALSE;
  cpu_state.eep_wrte = FALSE;
+
+ if (!pflags_done){
+  cu_avrfg_fill(&cpu_pflags[0]);
+  pflags_done = TRUE;
+ }
 
  cu_avr_crom_update(0U, 65536U);
  cu_avr_io_update();
