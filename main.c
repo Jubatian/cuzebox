@@ -46,7 +46,15 @@
 static const char* main_title = "CUzeBox";
 
 /* Cuzebox window title formatter */
-static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u";
+static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u %s";
+
+/* Appended info: None */
+static const char* main_title_fstr_e = "";
+
+#ifdef ENABLE_VCAP
+/* Appended info: Capturing */
+static const char* main_title_fstr_c = "(Capturing)";
+#endif
 
 /* Exit request */
 static boole main_exit = FALSE;
@@ -87,8 +95,10 @@ static boole main_peepch = FALSE;
 /* Default game to start without parameters */
 static const char* main_game = "gamefile.uze";
 
+#ifdef ENABLE_VCAP
 /* Whether video capturing is enabled */
 static boole main_isvcap = FALSE;
+#endif
 
 
 
@@ -171,6 +181,7 @@ static void main_loop(void)
  char  tstr[100];
  SDL_Event sdlevent;
  cu_state_cpu_t* ecpu;
+ const char*     titext = main_title_fstr_e;
 
  /* First "sandbox" the drift to silently skip main loops if the emulator is
  ** running too fast */
@@ -243,6 +254,10 @@ static void main_loop(void)
  main_t500 += tdif;
  main_t5_frc ++;
 
+#ifdef ENABLE_VCAP
+ if (main_isvcap){ titext = main_title_fstr_c; }
+#endif
+
  if (main_t500 >= 500U){
   main_t500 -= 500U;
 
@@ -267,7 +282,8 @@ static void main_loop(void)
       (cdif + 71591U) / 143182U,
       ((cdif * 2U) / 1000000U),
       ((cdif * 2U) / 1000U) % 1000U,
-      favg);
+      favg,
+      titext);
   guicore_setcaption(&(tstr[0]));
   fputs(&(tstr[0]), stdout);
   fputs("\n",       stdout);
@@ -311,9 +327,11 @@ static void main_loop(void)
      }
      break;
 
+#ifdef ENABLE_VCAP
     case SDLK_F5:
      main_isvcap = !main_isvcap;
      break;
+#endif
 
     default:
      break;
@@ -325,14 +343,22 @@ static void main_loop(void)
  /* Go on with the frame's logic. Does it here so the SDL_GetTicks() on the
  ** top of the loop is as close to the render's end as reasonably possible. */
 
+#ifdef ENABLE_VCAP
+
  rows = frame_run(fdrop && (!main_isvcap));
  audio_sendframe(frame_getaudio(), rows);
  guicore_update(fdrop);
 
-#ifdef ENABLE_VCAP
  if (main_isvcap){
   avconv_push(frame_getaudio(), rows);
  }
+
+#else
+
+ rows = frame_run(fdrop);
+ audio_sendframe(frame_getaudio(), rows);
+ guicore_update(fdrop);
+
 #endif
 }
 
@@ -365,7 +391,7 @@ int main (int argc, char** argv)
  fprintf(stdout, "Starting emulator\n");
 
 
- snprintf(&(tstr[0]), 100U, main_title_fstr, 100U, 28U, 636U, 60U);
+ snprintf(&(tstr[0]), 100U, main_title_fstr, 100U, 28U, 636U, 60U, main_title_fstr_e);
 
 
  if (!guicore_init(0U, main_title)){

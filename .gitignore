@@ -9,7 +9,8 @@
 /cuzebox.js
 # The gamefile.uze ROM needed by the Emscripten build
 /gamefile.uze
-# If the program created an eeprom dump, ignore that too
+# If the program created various files, ignore those too
 /eeprom.bin
+/capture.mp4
 # If for a Windows build an SDL2 development library is supplied locally, skip that
 /SDL2*

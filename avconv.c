@@ -71,30 +71,34 @@ void avconv_push(uint8 const* samples, auint len)
 
   avconv_pipe_v = popen(
       "ffmpeg"
-      " -y"                  /* Override output files */
-      " -f rawvideo"         /* Raw video input */
-      " -s 640x240"          /* Input size */
-      " -pix_fmt 0bgr"       /* Pixel format */
-      " -r 59.94"            /* Input rate (Hz) */
-      " -i -"                /* Input source: pipe */
-      " -vf scale=960x720"   /* Upscaling */
-      " -sws_flags neighbor" /* Cheap nearest */
-      " -an"                 /* Audio disabled */
-      " -preset ultrafast"   /* H.264 encoding speed / quality */
-      " -qp 0"               /* H.264 lossless */
-      " -tune animation"     /* H.264 tune */
-      " ~tempvid.mp4",       /* Output file */
+      " -y"                   /* Override output files */
+      " -f rawvideo"          /* Raw video input */
+      " -s 640x228"           /* Input size */
+      " -pix_fmt 0bgr"        /* Pixel format */
+      " -r 59.94"             /* Input rate (Hz) */
+      " -i -"                 /* Input source: pipe */
+      " -vf "                 /* Video filters */
+        "crop=620:228:10:0"   /* Crop to the game area */
+      " -an"                  /* Audio disabled */
+      " -preset ultrafast"    /* H.264 encoding speed / quality */
+      " -qp 0"                /* H.264 lossless (so generating output as fast as possible) */
+      " -tune animation"      /* H.264 tune */
+      " ~tempvid.mp4"         /* Output file */
+      " 1> ~tempvid.log"      /* Output log */
+      " 2> ~tempvid.err",     /* Output log */
       "w");
 
   avconv_pipe_a = popen(
       "ffmpeg"
-      " -y"                  /* Override output files */
-      " -f u8"               /* Raw unsigned 8 bit samples */
-      " -ar 48000"           /* Input rate (Hz) */
-      " -ac 1"               /* Input channels */
-      " -i -"                /* Input source: pipe */
-      " -acodec: libmp3lame"
-      " ~tempaud.mp3",       /* Output file */
+      " -y"                   /* Override output files */
+      " -f u8"                /* Raw unsigned 8 bit samples */
+      " -ar 48000"            /* Input rate (Hz) */
+      " -ac 1"                /* Input channels */
+      " -i -"                 /* Input source: pipe */
+      " -acodec: libmp3lame"  /* Encoder */
+      " ~tempaud.mp3"         /* Output file */
+      " 1> ~tempaud.log"      /* Output log */
+      " 2> ~tempaud.err",     /* Output log */
       "w");
 
   if ( (avconv_pipe_v == NULL) ||
@@ -135,9 +139,9 @@ void avconv_push(uint8 const* samples, auint len)
 
   /* Output stuff */
 
-  pixbuf = guicore_getpixbuf();
-  fwrite(pixbuf, 640U * 240U * sizeof(uint32), 1U, avconv_pipe_v);
-  fwrite(&samp48k[0], areq, 1U, avconv_pipe_a);
+  pixbuf = guicore_getpixbuf() + (640U * 18U); /* At game area top */
+  fwrite(pixbuf, (640U * 228U) * sizeof(uint32), 1U, avconv_pipe_v);
+  fwrite(&(samp48k[0]), areq, 1U, avconv_pipe_a);
 
  }
 }
@@ -162,7 +166,13 @@ void avconv_finalize(void)
       " -y"
       " -i ~tempvid.mp4"
       " -i ~tempaud.mp3"
-      " -vcodec copy"
+      " -vf "                 /* Video filters */
+        "scale=940:228:flags=bilinear,"   /* Scale up width smoothly */
+        "scale=940:684:flags=neighbor,"   /* Scale up height to 3x with nearest */
+        "pad=960:720:16:18"               /* Pad to 720p */
+      " -preset medium"       /* H.264 encoding speed / quality */
+      " -crf 22"              /* H.264 output quality / size */
+      " -tune animation"      /* H.264 tune */
       " -acodec copy"
       " -f mp4"
       " capture.mp4",
@@ -171,6 +181,10 @@ void avconv_finalize(void)
    pclose(mux);
    unlink("~tempvid.mp4");
    unlink("~tempaud.mp3");
+   unlink("~tempvid.log");
+   unlink("~tempaud.log");
+   unlink("~tempvid.err");
+   unlink("~tempaud.err");
   }
 
  }
