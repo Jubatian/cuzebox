@@ -68,6 +68,7 @@ void  cu_spir_reset(auint cycle)
  memset(&spir_state, 0, sizeof(spir_state));
  spir_state.mode = 0x40U; /* Sequential mode */
  spir_state.data = 0xFFU;
+ spir_state.state = STAT_IDLE;
 }
 
 
