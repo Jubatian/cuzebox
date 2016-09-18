@@ -94,6 +94,8 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  auint i;
  auint brem;
  auint brav;
+ auint bras;
+ auint xinc;
  boole tbd;
 
  /* If this is the first run, init */
@@ -120,8 +122,11 @@ void audio_callback(void* dummy, Uint8* stream, int len)
   brav = brem;
  }
  brav = brem;
+ bras = brem;
  for (i = 0U; i < 31U; i++){ brav += audio_pbrem[i]; }
+ for (i = 0U; i <  7U; i++){ bras += audio_pbrem[i]; }
  brav = (brav + 15U) >> 5;
+ bras = (bras +  3U) >> 3;
 
  /* Frequency scaling */
 
@@ -131,14 +136,14 @@ void audio_callback(void* dummy, Uint8* stream, int len)
   if (audio_inc > (((AUDIO_INC_P) *  75U) / 100U)){ /* Allow up to 25% slow down (for too slow machines) */
    if (brav <= audio_pbrav){ /* Only push it until tendency turns around */
     i = (AUDIO_FILL - brav);
-    audio_inc -= ((AUDIO_INC_P * i) + 0x7FFFFU) / 0x80000U;
+    audio_inc -= ((AUDIO_INC_P * i) + 0x1FFFFFU) / 0x200000U;
    }
   }
  }else{
   if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
    if (brav >= audio_pbrav){ /* Only push it until tendency turns around */
     i = (brav - AUDIO_FILL);
-    audio_inc += ((AUDIO_INC_P * i) + 0x7FFFFU) / 0x80000U;
+    audio_inc += ((AUDIO_INC_P * i) + 0x1FFFFFU) / 0x200000U;
    }
   }
  }
@@ -147,10 +152,20 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 
  if (brav < audio_pbrav){
   i = audio_pbrav - brav;
-  audio_inc -= ((AUDIO_INC_P * i) + 0x7FFFU) / 0x8000U;
+  audio_inc -= ((AUDIO_INC_P * i) + 0x1FFFFU) / 0x20000U;
  }else{
   i = brav - audio_pbrav;
-  audio_inc += ((AUDIO_INC_P * i) + 0x7FFFU) / 0x8000U;
+  audio_inc += ((AUDIO_INC_P * i) + 0x1FFFFU) / 0x20000U;
+ }
+
+ /* Produce a temporary increment to push the buffer's filledness towards
+ ** the ideal point faster by a short term average */
+
+ xinc = audio_inc;
+ if (bras < AUDIO_FILL){
+  xinc -= (AUDIO_FILL - bras);
+ }else{
+  xinc += (bras - AUDIO_FILL);
  }
 
  /* Sample output */
@@ -161,7 +176,7 @@ void audio_callback(void* dummy, Uint8* stream, int len)
    tbd = TRUE;
   }else{
    stream[i] = audio_buf[audio_buf_r];
-   audio_frac += audio_inc;
+   audio_frac += xinc;
    if (audio_frac >= 0x10000U){
     audio_frac &= 0xFFFFU;
     audio_buf_r = (audio_buf_r + 1U) & (AUDIO_BUF_SIZE - 1U);

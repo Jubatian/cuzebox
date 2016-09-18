@@ -80,8 +80,8 @@ static auint main_t500 = 0U;
 /* Current frame counter during the 500ms tick */
 static auint main_t5_frc = 0U;
 
-/* Previous three frame counts for the 500ms tick */
-static auint main_t5_frp[3] = {30U, 30U, 30U};
+/* Previous frame count for the 500ms tick */
+static auint main_t5_frp = 30U;
 
 /* Previous cycle counter value for the 500ms tick */
 static auint main_t5_cc;
@@ -252,7 +252,7 @@ static void main_loop(void)
  /* Generate FPS info */
 
  main_t500 += tdif;
- main_t5_frc ++;
+ if (!fdrop){ main_t5_frc ++; }
 
 #ifdef ENABLE_VCAP
  if (main_isvcap){ titext = main_title_fstr_c; }
@@ -261,15 +261,9 @@ static void main_loop(void)
  if (main_t500 >= 500U){
   main_t500 -= 500U;
 
-  favg = ( main_t5_frc +
-           main_t5_frp[0] +
-           main_t5_frp[1] +
-           main_t5_frp[2] ) / 2U;
-  main_t5_frp[2] = main_t5_frp[1];
-  main_t5_frp[1] = main_t5_frp[0];
-  main_t5_frp[0] = main_t5_frc;
-  main_t5_frc    = 0U;
-  if (main_fdrop != 0U){ favg = favg / 2U; }
+  favg = main_t5_frc + main_t5_frp;
+  main_t5_frp = main_t5_frc;
+  main_t5_frc = 0U;
 
   ccur       = cu_avr_getcycle();
   cdif       = WRAP32(ccur - main_t5_cc);
