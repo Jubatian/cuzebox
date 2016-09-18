@@ -61,8 +61,10 @@ static cu_state_spisd_t sd_state;
 /* Milliseconds taken for the card's initialization */
 #define SD_INIMS  500U
 
-/* Command response time (bytes, should be 0 - 8) */
-#define CMD_N     1U
+/* Command response time (bytes, should be 0 - 8). Note: There is a buggy
+** version of Tempest which only works with this set zero (that is, it doesn't
+** handle 0xFF stuff bytes before the response for certain commands). */
+#define CMD_N     0U
 
 /* Data preparation time for reads (bytes, arbitrary) */
 #define READ_P_N  2U
