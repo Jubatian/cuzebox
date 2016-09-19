@@ -41,8 +41,11 @@
 
 
 
+/* Whole for the audio sample increment, bits */
+#define AUDIO_INC_W    17U
+
 /* Preferred audio sample increment fraction */
-#define AUDIO_INC_P    (((auint)(15734U) * 0x10000U) / 48000U)
+#define AUDIO_INC_P    (((auint)(15734U) << AUDIO_INC_W) / 48000U)
 
 /* Audio output buffer size, must be a power of 2 (48KHz samples) */
 #ifndef __EMSCRIPTEN__
@@ -96,7 +99,6 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  auint brav;
  auint bras;
  auint xinc;
- boole tbd;
 
  /* If this is the first run, init */
 
@@ -111,16 +113,9 @@ void audio_callback(void* dummy, Uint8* stream, int len)
   audio_frun  = FALSE;
  }
 
- /* Calculate averaging buffer of remaining samples. If the buffer is empty,
- ** ignore, assume no audio source, prevent scaling. */
+ /* Calculate averaging buffer of remaining samples. */
 
- tbd  = FALSE;
  brem = (audio_buf_w - audio_buf_r) & (AUDIO_BUF_SIZE - 1U);
- if (brem == 0U){
-  brav = AUDIO_FILL;
- }else{
-  brav = brem;
- }
  brav = brem;
  bras = brem;
  for (i = 0U; i < 31U; i++){ brav += audio_pbrem[i]; }
@@ -132,40 +127,38 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 
  /* Propotional */
 
- if (brav < AUDIO_FILL){
-  if (audio_inc > (((AUDIO_INC_P) *  75U) / 100U)){ /* Allow up to 25% slow down (for too slow machines) */
-   if (brav <= audio_pbrav){ /* Only push it until tendency turns around */
-    i = (AUDIO_FILL - brav);
-    audio_inc -= ((AUDIO_INC_P * i) + 0x1FFFFFU) / 0x200000U;
-   }
+ if       (brav < AUDIO_FILL){
+  if (audio_inc > (((AUDIO_INC_P) *  50U) / 100U)){ /* Allow slow down to 50% (for too slow machines) */
+   audio_inc --;
   }
- }else{
+ }else if (brav > AUDIO_FILL){
   if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
-   if (brav >= audio_pbrav){ /* Only push it until tendency turns around */
-    i = (brav - AUDIO_FILL);
-    audio_inc += ((AUDIO_INC_P * i) + 0x1FFFFFU) / 0x200000U;
-   }
+   audio_inc ++;
   }
- }
+ }else{}
 
  /* Differential */
 
- if (brav < audio_pbrav){
-  i = audio_pbrav - brav;
-  audio_inc -= ((AUDIO_INC_P * i) + 0x1FFFFU) / 0x20000U;
- }else{
-  i = brav - audio_pbrav;
-  audio_inc += ((AUDIO_INC_P * i) + 0x1FFFFU) / 0x20000U;
- }
+ if       (brav < audio_pbrav){
+  audio_inc --;
+ }else if (brav > audio_pbrav){
+  audio_inc ++;
+ }else{}
 
  /* Produce a temporary increment to push the buffer's filledness towards
  ** the ideal point faster by a short term average */
 
  xinc = audio_inc;
  if (bras < AUDIO_FILL){
-  xinc -= (AUDIO_FILL - bras);
+  xinc -= (AUDIO_FILL - bras) >> 2;
+  if (bras < ((AUDIO_FILL * 7U) / 8U)){
+   xinc -= (((AUDIO_FILL * 7U) / 8U) - bras) << 2;
+  }
  }else{
-  xinc += (bras - AUDIO_FILL);
+  xinc += (bras - AUDIO_FILL) >> 2;
+  if (bras > ((AUDIO_FILL * 9U) / 8U)){
+   xinc += (bras - ((AUDIO_FILL * 9U) / 8U)) << 2;
+  }
  }
 
  /* Sample output */
@@ -173,21 +166,15 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  for (i = 0U; i < len; i++){
   if (audio_buf_w == audio_buf_r){
    stream[i] = audio_buf[(audio_buf_r - 1U) & (AUDIO_BUF_SIZE - 1U)];
-   tbd = TRUE;
   }else{
    stream[i] = audio_buf[audio_buf_r];
    audio_frac += xinc;
-   if (audio_frac >= 0x10000U){
-    audio_frac &= 0xFFFFU;
+   if (audio_frac >= (1U << AUDIO_INC_W)){
+    audio_frac &= ((1U << AUDIO_INC_W) - 1U);
     audio_buf_r = (audio_buf_r + 1U) & (AUDIO_BUF_SIZE - 1U);
    }
   }
  }
-
- /* If there was a total buffer depletion, assume some transient problem and
- ** ignore it instead of scaling frequency to it. */
-
- if (tbd){ brem = AUDIO_FILL; }
 
  /* Finalize scaling state */
 
@@ -269,4 +256,14 @@ void  audio_sendframe(uint8 const* samples, auint len)
   audio_buf[audio_buf_w] = samples[i];
   audio_buf_w = (audio_buf_w + 1U) & (AUDIO_BUF_SIZE - 1U);
  }
+}
+
+
+
+/*
+** Returns current long-term audio frequency.
+*/
+auint audio_getfreq(void)
+{
+ return (48000U * audio_inc) >> AUDIO_INC_W;
 }

@@ -61,4 +61,10 @@ void  audio_quit(void);
 void  audio_sendframe(uint8 const* samples, auint len);
 
 
+/*
+** Returns current long-term audio frequency.
+*/
+auint audio_getfreq(void);
+
+
 #endif

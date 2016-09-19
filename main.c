@@ -46,7 +46,7 @@
 static const char* main_title = "CUzeBox";
 
 /* Cuzebox window title formatter */
-static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u %s";
+static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u Freq: %2u.%03u KHz %s";
 
 /* Appended info: None */
 static const char* main_title_fstr_e = "";
@@ -176,9 +176,10 @@ static void main_loop(void)
  auint cdif;
  auint rows;
  auint fdtmp = main_fdrop;
+ auint afreq;
  boole fdrop = FALSE;
  boole eepch;
- char  tstr[100];
+ char  tstr[128];
  SDL_Event sdlevent;
  cu_state_cpu_t* ecpu;
  const char*     titext = main_title_fstr_e;
@@ -269,14 +270,18 @@ static void main_loop(void)
   cdif       = WRAP32(ccur - main_t5_cc);
   main_t5_cc = ccur;
 
+  afreq = audio_getfreq();
+
   snprintf(
       &(tstr[0]),
-      100U,
+      128U,
       main_title_fstr,
       (cdif + 71591U) / 143182U,
       ((cdif * 2U) / 1000000U),
       ((cdif * 2U) / 1000U) % 1000U,
       favg,
+      afreq / 1000U,
+      afreq % 1000U,
       titext);
   guicore_setcaption(&(tstr[0]));
   fputs(&(tstr[0]), stdout);
@@ -365,7 +370,7 @@ int main (int argc, char** argv)
 {
  cu_ufile_header_t ufhead;
  cu_state_cpu_t*   ecpu;
- char              tstr[100];
+ char              tstr[128];
  char const*       game = main_game;
 
  if (argc > 1){ game = argv[1]; }
@@ -385,7 +390,7 @@ int main (int argc, char** argv)
  fprintf(stdout, "Starting emulator\n");
 
 
- snprintf(&(tstr[0]), 100U, main_title_fstr, 100U, 28U, 636U, 60U, main_title_fstr_e);
+ snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, 15U, 734U, main_title_fstr_e);
 
 
  if (!guicore_init(0U, main_title)){
