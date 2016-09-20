@@ -87,6 +87,9 @@ static auint audio_pbrav;
 /* First run after reset mark (to reset in sync) */
 static boole audio_frun;
 
+/* Frequency scaling state: enabled or disabled */
+static boole audio_fs_isena = TRUE;
+
 
 
 /*
@@ -125,25 +128,29 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 
  /* Frequency scaling */
 
- /* Propotional */
+ if (audio_fs_isena){
 
- if       (brav < AUDIO_FILL){
-  if (audio_inc > (((AUDIO_INC_P) *  50U) / 100U)){ /* Allow slow down to 50% (for too slow machines) */
+  /* Propotional */
+
+  if       (brav < AUDIO_FILL){
+   if (audio_inc > (((AUDIO_INC_P) *  50U) / 100U)){ /* Allow slow down to 50% (for too slow machines) */
+    audio_inc --;
+   }
+  }else if (brav > AUDIO_FILL){
+   if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
+    audio_inc ++;
+   }
+  }else{}
+
+  /* Differential */
+
+  if       (brav < audio_pbrav){
    audio_inc --;
-  }
- }else if (brav > AUDIO_FILL){
-  if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
+  }else if (brav > audio_pbrav){
    audio_inc ++;
-  }
- }else{}
+  }else{}
 
- /* Differential */
-
- if       (brav < audio_pbrav){
-  audio_inc --;
- }else if (brav > audio_pbrav){
-  audio_inc ++;
- }else{}
+ }
 
  /* Produce a temporary increment to push the buffer's filledness towards
  ** the ideal point faster by a short term average */
@@ -266,4 +273,16 @@ void  audio_sendframe(uint8 const* samples, auint len)
 auint audio_getfreq(void)
 {
  return (48000U * audio_inc) >> AUDIO_INC_W;
+}
+
+
+
+/*
+** Enables or disables frequency scaling. By default frequency scaling is
+** enabled. When disabled, the long term PD controller is fixed at whatever
+** frequency it determined last.
+*/
+void  audio_freqscale_ena(boole ena)
+{
+ audio_fs_isena = ena;
 }

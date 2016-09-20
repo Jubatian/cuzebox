@@ -320,9 +320,11 @@ static void main_loop(void)
      if (main_nolimit){
       main_nolimit = FALSE;
       if (!guicore_init(guicore_getflags() & (~GUICORE_NOVSYNC), main_title)){ main_exit = TRUE; }
+      audio_freqscale_ena(TRUE);
      }else{
       main_nolimit = TRUE;
       if (!guicore_init(guicore_getflags() | ( GUICORE_NOVSYNC), main_title)){ main_exit = TRUE; }
+      audio_freqscale_ena(FALSE);
      }
      break;
 

@@ -67,4 +67,12 @@ void  audio_sendframe(uint8 const* samples, auint len);
 auint audio_getfreq(void);
 
 
+/*
+** Enables or disables frequency scaling. By default frequency scaling is
+** enabled. When disabled, the long term PD controller is fixed at whatever
+** frequency it determined last.
+*/
+void  audio_freqscale_ena(boole ena);
+
+
 #endif
