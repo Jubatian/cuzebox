@@ -105,6 +105,7 @@ typedef struct{
  auint pc;            /* Program Counter */
  auint latch;         /* 16 bit I/O register high latch */
  auint cycle;         /* Current cycle (32 bits wrapping, used for timing) */
+ boole crom_mod;      /* Whether code ROM was modified since the last reset */
  boole spi_tran;      /* SPI transfer in progress */
  auint spi_end;       /* SPI transfer end cycle */
  auint spi_rx;        /* SPI received data waiting to be clocked into the AVR */

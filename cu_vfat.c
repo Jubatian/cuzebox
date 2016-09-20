@@ -416,6 +416,8 @@ void  cu_vfat_reset(void)
   i++;
 
  }
+
+ vfat_state.isacc = FALSE;
 }
 
 
@@ -431,6 +433,8 @@ auint cu_vfat_read(auint pos)
 {
  auint fid;
  auint fpos;
+
+ vfat_state.isacc = TRUE;
 
  /* System area */
 
@@ -471,6 +475,8 @@ void  cu_vfat_write(auint pos, auint data)
 {
  auint fid;
  auint fpos;
+
+ vfat_state.isacc = TRUE;
 
  /* System area */
 
@@ -522,4 +528,16 @@ void  cu_vfat_update(void)
 {
  vfat_broken = FALSE;
  vfat_lfile  = CU_VFAT_ROOT_SIZE;
+}
+
+
+
+/*
+** Returns whether the virtual filesystem was accessed since reset. If a read
+** or write happens to it, then it is accessed. This can be used to decide
+** whether to add the filesystem's state to a state save.
+*/
+boole cu_vfat_isaccessed(void)
+{
+ return vfat_state.isacc;
 }

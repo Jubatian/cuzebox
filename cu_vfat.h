@@ -52,6 +52,7 @@ typedef struct{
  uint8 sys[CU_VFAT_SYS_SIZE]; /* The system area of the file system (MBR, FATs, root dir) */
  uint8 rwbuf[512U];           /* Read / Write buffer, collecting a sector of data */
  char  hnames[CU_VFAT_ROOT_SIZE][CU_VFAT_HNAME_SIZE]; /* Host filenames */
+ boole isacc;                 /* Whether the Virtual FAT was accessed since reset */
 }cu_state_vfat_t;
 
 
@@ -94,6 +95,14 @@ cu_state_vfat_t* cu_vfat_get_state(void);
 ** the filesystem state.
 */
 void  cu_vfat_update(void);
+
+
+/*
+** Returns whether the virtual filesystem was accessed since reset. If a read
+** or write happens to it, then it is accessed. This can be used to decide
+** whether to add the filesystem's state to a state save.
+*/
+boole cu_vfat_isaccessed(void);
 
 
 #endif

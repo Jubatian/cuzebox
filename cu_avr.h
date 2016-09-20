@@ -92,9 +92,17 @@ uint8* cu_avr_get_ioinfo(void);
 /*
 ** Returns whether the EEPROM changed since the last clear of this indicator.
 ** Calling cu_avr_io_update() clears this indicator (as well as resetting by
-** vu_avr_reset()). Passing TRUE also clears it.
+** cu_avr_reset()). Passing TRUE also clears it.
 */
 boole cu_avr_eeprom_ischanged(boole clear);
+
+
+/*
+** Returns whether the Code ROM was modified since reset. This can be used to
+** determine if it is necessary to include the Code ROM in a save state.
+** Internal Code ROM writes and the cu_avr_crom_update() function can set it.
+*/
+boole cu_avr_crom_ismod(void);
 
 
 /*
