@@ -1367,13 +1367,12 @@ call_tail:
     goto cy1_tail;
    }
 skip_tail:
-   tmp = ((cpu_code[cpu_state.pc & 0x7FFFU] >> 7) & 1U) + 1U;
-   cpu_state.pc += tmp;
-   do{
-    UPDATE_HARDWARE;
-    tmp --;
-   }while (tmp != 0U);
-   goto cy1_tail;
+   if (((cpu_code[cpu_state.pc & 0x7FFFU] >> 7) & 1U) != 0U){
+    cpu_state.pc += 2U;
+    goto cy3_tail;
+   }
+   cpu_state.pc ++;
+   goto cy2_tail;
 
   case 0x48U: /* LDI */
    cpu_state.iors[arg1] = arg2;
