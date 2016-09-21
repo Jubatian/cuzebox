@@ -64,17 +64,31 @@ void avconv_push(uint8 const* samples, auint len)
  auint   i;
  auint   j;
  auint   frac;
+ char    tstr[256];
+ char    pixs[5] = {'0', '0', '0', '0', 0};
+ guicore_pixfmt_t pixfmt;
 
  /* Initialize recording if necessary */
 
  if (!avconv_isinit){
 
-  avconv_pipe_v = popen(
+  /* Note: This method of just mashing up a pixel format string for ffmpeg
+  ** might utterly fail if it doesn't support what the GUI came up with.
+  ** Usually it should work. If it doesn't, a (costly) pixel format conversion
+  ** stage would have to be added here. */
+
+  guicore_getpixfmt(&pixfmt);
+  pixs[pixfmt.rsh / 8U] = 'r';
+  pixs[pixfmt.gsh / 8U] = 'g';
+  pixs[pixfmt.bsh / 8U] = 'b';
+
+  snprintf(&(tstr[0]),
+      256U,
       "ffmpeg"
       " -y"                   /* Override output files */
       " -f rawvideo"          /* Raw video input */
       " -s 640x228"           /* Input size */
-      " -pix_fmt 0bgr"        /* Pixel format */
+      " -pix_fmt %s"          /* Pixel format */
       " -r 59.94"             /* Input rate (Hz) */
       " -i -"                 /* Input source: pipe */
       " -vf "                 /* Video filters */
@@ -86,6 +100,10 @@ void avconv_push(uint8 const* samples, auint len)
       " ~tempvid.mp4"         /* Output file */
       " 1> ~tempvid.log"      /* Output log */
       " 2> ~tempvid.err",     /* Output log */
+      &pixs[0]);
+
+  avconv_pipe_v = popen(
+      &(tstr[0]),
       "w");
 
   avconv_pipe_a = popen(

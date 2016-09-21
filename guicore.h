@@ -63,6 +63,16 @@
 
 
 
+/* Descriptor for the pixel format of the pixel buffer. When using the Uzebox
+** palette it is not necessary to query this as it contains correct colors. */
+typedef struct{
+ auint rsh;      /* Left shift amount to generate 8 bit Red component */
+ auint gsh;      /* Left shift amount to generate 8 bit Green component */
+ auint bsh;      /* Left shift amount to generate 8 bit Blue component */
+}guicore_pixfmt_t;
+
+
+
 /*
 ** Attempts to initialize the GUI. Returns TRUE on success. This must be
 ** called first before any platform specific elements as it initializes
@@ -89,6 +99,12 @@ auint guicore_getflags(void);
 ** Retrieves 640 x 270 GUI surface's pixel buffer.
 */
 uint32* guicore_getpixbuf(void);
+
+
+/*
+** Retrieves the pixel format of the pixel buffer.
+*/
+void  guicore_getpixfmt(guicore_pixfmt_t* pixfmt);
 
 
 /*

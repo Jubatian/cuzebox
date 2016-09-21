@@ -84,6 +84,9 @@ static auint         guicore_flags;
 /* String constant for SDL error output */
 static const char*   guicore_sdlerr = "SDL Error: %s\n";
 
+/* Pixel format */
+static guicore_pixfmt_t guicore_pixfmt;
+
 
 
 /*
@@ -107,7 +110,7 @@ static void guicore_render_2x(uint32* dest, auint dpitch,
   srcoff   = (640U * (ys + (i >> 1))) + (xs << 1);
   for (j = 0U; j < (w << 1); j ++){
    col = guicore_pixels[srcoff + j];
-   dest[destoff0 + j] = col;
+   dest[destoff0 + j] = col | guicore_amask;
    dest[destoff1 + j] = (((col & 0xF8F8F8F8) >> 3) * 7U) | guicore_amask;
   }
  }
@@ -155,13 +158,15 @@ boole guicore_init(auint flags, const char* title)
  auint r;
  auint g;
  auint b;
+ auint wndw;
+ auint wndh;
 #ifndef USE_SDL1
+ auint res;
  auint renflags;
  auint wndflags;
  boole wndnew = TRUE;
+ SDL_RendererInfo reninfo;
 #endif
- auint wndw;
- auint wndh;
 
  /* Prepare parameters */
 
@@ -238,16 +243,26 @@ boole guicore_init(auint flags, const char* title)
   goto fail_qt;
  }
 
- for (i = 0U; i < 256U; i++){
-  r = (((i >> 0) & 7U) * 255U) / 7U;
-  g = (((i >> 3) & 7U) * 255U) / 7U;
-  b = (((i >> 6) & 3U) * 255U) / 3U;
-  guicore_palette[i] = SDL_MapRGB(guicore_surface->format, r, g, b);
- }
+ /* For some reason in Emscripten the shifts from the format are missing. Work
+ ** it around by determining them using the masks */
 
+ if      ((guicore_surface->format->Rmask & 0x00FFFFFFU) == 0U){ guicore_pixfmt.rsh = 24U; }
+ else if ((guicore_surface->format->Rmask & 0x0000FFFFU) == 0U){ guicore_pixfmt.rsh = 16U; }
+ else if ((guicore_surface->format->Rmask & 0x000000FFU) == 0U){ guicore_pixfmt.rsh =  8U; }
+ else                                                          { guicore_pixfmt.rsh =  0U; }
+ if      ((guicore_surface->format->Gmask & 0x00FFFFFFU) == 0U){ guicore_pixfmt.gsh = 24U; }
+ else if ((guicore_surface->format->Gmask & 0x0000FFFFU) == 0U){ guicore_pixfmt.gsh = 16U; }
+ else if ((guicore_surface->format->Gmask & 0x000000FFU) == 0U){ guicore_pixfmt.gsh =  8U; }
+ else                                                          { guicore_pixfmt.gsh =  0U; }
+ if      ((guicore_surface->format->Bmask & 0x00FFFFFFU) == 0U){ guicore_pixfmt.bsh = 24U; }
+ else if ((guicore_surface->format->Bmask & 0x0000FFFFU) == 0U){ guicore_pixfmt.bsh = 16U; }
+ else if ((guicore_surface->format->Bmask & 0x000000FFU) == 0U){ guicore_pixfmt.bsh =  8U; }
+ else                                                          { guicore_pixfmt.bsh =  0U; }
  guicore_amask = guicore_surface->format->Amask;
 
 #else
+
+ /* Create window and its renderer */
 
  if (wndnew){
 
@@ -281,9 +296,72 @@ boole guicore_init(auint flags, const char* title)
   goto fail_ren;
  }
 
+ /* Find out renderer's pixel format */
+
+ SDL_GetRendererInfo(guicore_renderer, &reninfo);
+
+ res = SDL_PIXELFORMAT_UNKNOWN;
+ for (i = 0U; i < reninfo.num_texture_formats; i++){
+  if ( (reninfo.texture_formats[i] == SDL_PIXELFORMAT_RGBX8888) ||
+       (reninfo.texture_formats[i] == SDL_PIXELFORMAT_BGRX8888) ){
+   res = reninfo.texture_formats[i];
+   break;
+  }
+ }
+ if (res == SDL_PIXELFORMAT_UNKNOWN){
+  for (i = 0U; i < reninfo.num_texture_formats; i++){
+   if ( (reninfo.texture_formats[i] == SDL_PIXELFORMAT_RGBA8888) ||
+        (reninfo.texture_formats[i] == SDL_PIXELFORMAT_BGRA8888) ||
+        (reninfo.texture_formats[i] == SDL_PIXELFORMAT_ARGB8888) ||
+        (reninfo.texture_formats[i] == SDL_PIXELFORMAT_ABGR8888) ){
+    res = reninfo.texture_formats[i];
+    break;
+   }
+  }
+ }
+ if (res == SDL_PIXELFORMAT_UNKNOWN){
+  fprintf(stderr, "Warning: Display doesn't support a known 32 bpp format.");
+  res = SDL_PIXELFORMAT_RGBX8888;
+ }
+
+ /* Note: There --might-- be byte order problems here across Big Endian and
+ ** Little Endian machines. Use the SDL_BYTEORDER macro then to fix this part
+ ** proper to generate the appropriate pixel format! */
+
+ switch (res){
+  case SDL_PIXELFORMAT_RGBX8888:
+  case SDL_PIXELFORMAT_RGBA8888:
+   guicore_pixfmt.rsh = 24U;
+   guicore_pixfmt.gsh = 16U;
+   guicore_pixfmt.bsh =  8U;
+   guicore_amask = 0x000000FFU;
+   break;
+  case SDL_PIXELFORMAT_BGRX8888:
+  case SDL_PIXELFORMAT_BGRA8888:
+   guicore_pixfmt.rsh =  8U;
+   guicore_pixfmt.gsh = 16U;
+   guicore_pixfmt.bsh = 24U;
+   guicore_amask = 0x000000FFU;
+   break;
+  case SDL_PIXELFORMAT_ARGB8888:
+   guicore_pixfmt.rsh = 16U;
+   guicore_pixfmt.gsh =  8U;
+   guicore_pixfmt.bsh =  0U;
+   guicore_amask = 0xFF000000U;
+   break;
+  default:
+   guicore_pixfmt.rsh =  0U;
+   guicore_pixfmt.gsh =  8U;
+   guicore_pixfmt.bsh = 16U;
+   guicore_amask = 0xFF000000U;
+   break;
+ }
+
+ /* Generate hopefully optimal texture to fit the renderer */
+
  guicore_texture = SDL_CreateTexture(
      guicore_renderer,
-     SDL_PIXELFORMAT_RGBX8888, /* Note: If necessary, would also work with RGBA8888 */
+     res,
      SDL_TEXTUREACCESS_STREAMING,
      wndw,
      wndh);
@@ -297,16 +375,18 @@ boole guicore_init(auint flags, const char* title)
   SDL_RenderPresent(guicore_renderer);
  }
 
+#endif
+
+ /* Generate palette */
+
  for (i = 0U; i < 256U; i++){
   r = (((i >> 0) & 7U) * 255U) / 7U;
   g = (((i >> 3) & 7U) * 255U) / 7U;
   b = (((i >> 6) & 3U) * 255U) / 3U;
-  guicore_palette[i] = (r << 24) | (g << 16) | (b << 8) | 0xFFU;
+  guicore_palette[i] = (r << guicore_pixfmt.rsh) |
+                       (g << guicore_pixfmt.gsh) |
+                       (b << guicore_pixfmt.bsh);
  }
-
- guicore_amask = 0x000000FFU;
-
-#endif
 
  guicore_flags = flags | GUICORE_INIT;
  return TRUE;
@@ -375,6 +455,18 @@ auint guicore_getflags(void)
 uint32* guicore_getpixbuf(void)
 {
  return &(guicore_pixels[0]);
+}
+
+
+
+/*
+** Retrieves the pixel format of the pixel buffer.
+*/
+void  guicore_getpixfmt(guicore_pixfmt_t* pixfmt)
+{
+ pixfmt->rsh = guicore_pixfmt.rsh;
+ pixfmt->gsh = guicore_pixfmt.gsh;
+ pixfmt->bsh = guicore_pixfmt.bsh;
 }
 
 
