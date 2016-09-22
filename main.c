@@ -46,10 +46,19 @@
 static const char* main_title = "CUzeBox";
 
 /* Cuzebox window title formatter */
-static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u Freq: %2u.%03u KHz %s";
+static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u; Freq: %2u.%03u KHz; Keys: %s %s";
 
 /* Appended info: None */
 static const char* main_title_fstr_e = "";
+
+/* Keymap: SNES */
+static const char* main_title_fstr_ksnes = "SNES";
+
+/* Keymap: UZEM */
+static const char* main_title_fstr_kuzem = "UZEM";
+
+/* Keymap current */
+static const char* main_title_fstr_k;
 
 #ifdef ENABLE_VCAP
 /* Appended info: Capturing */
@@ -89,6 +98,9 @@ static auint main_t5_cc;
 /* Request for discarding frame limitation */
 static boole main_nolimit = FALSE;
 
+/* Request Uzem style keymapping */
+static boole main_kbuzem = FALSE;
+
 /* Previous state of EEPROM changes to save only after a write burst was completed */
 static boole main_peepch = FALSE;
 
@@ -115,7 +127,9 @@ static void main_setctr(SDL_Event const* ev)
   if ((ev->type) == SDL_KEYDOWN){ press = TRUE; }
 
   /* Note: For SDL2 the scancode has more sense here, but SDL1 does not
-  ** support that. This solution works for now on both */
+  ** support that. This solution works for now on both. For the Uzem
+  ** keymapping both Y and Z triggers SNES_Y, so it remains useful on both a
+  ** QWERTY and a QWERTZ keyboard. */
 
   switch (ev->key.keysym.sym){
    case SDLK_LEFT:
@@ -131,21 +145,32 @@ static void main_setctr(SDL_Event const* ev)
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_DOWN, press);
     break;
    case SDLK_q:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press);
+    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press); }
     break;
    case SDLK_w:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press);
+    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press); }
     break;
    case SDLK_a:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press);
+    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press); }
+    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press); }
     break;
    case SDLK_s:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press);
+    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press); }
+    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press); }
     break;
-   case SDLK_RETURN:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
+   case SDLK_y:
+    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press); }
+    break;
+   case SDLK_z:
+    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press); }
+    break;
+   case SDLK_x:
+    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press); }
     break;
    case SDLK_SPACE:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
+    break;
+   case SDLK_RETURN:
     cu_ctr_setsnes_single(0U, CU_CTR_SNES_START, press);
     break;
    case SDLK_LSHIFT:
@@ -282,6 +307,7 @@ static void main_loop(void)
       favg,
       afreq / 1000U,
       afreq % 1000U,
+      main_title_fstr_k,
       titext);
   guicore_setcaption(&(tstr[0]));
   fputs(&(tstr[0]), stdout);
@@ -333,6 +359,12 @@ static void main_loop(void)
      main_isvcap = !main_isvcap;
      break;
 #endif
+
+    case SDLK_F8:
+     main_kbuzem = !main_kbuzem;
+     if (main_kbuzem){ main_title_fstr_k = main_title_fstr_kuzem; }
+     else            { main_title_fstr_k = main_title_fstr_ksnes; }
+     break;
 
     default:
      break;
@@ -392,7 +424,9 @@ int main (int argc, char** argv)
  fprintf(stdout, "Starting emulator\n");
 
 
- snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, 15U, 734U, main_title_fstr_e);
+ if (main_kbuzem){ main_title_fstr_k = main_title_fstr_kuzem; }
+ else            { main_title_fstr_k = main_title_fstr_ksnes; }
+ snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, 15U, 734U, main_title_fstr_k, main_title_fstr_e);
 
 
  if (!guicore_init(0U, main_title)){

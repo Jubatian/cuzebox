@@ -37,8 +37,8 @@ Currently only Player 1's SNES controller is added, as follows:
 - W: Button X
 - A: Button B
 - S: Button A
-- Enter: Select
-- Space: Start
+- Enter: Start
+- Space: Select
 - Left shift: Left shift
 - Right shift: Right shift
 
@@ -49,7 +49,14 @@ The emulator itself can be controlled with the following keys:
 - F3: Toggle debug informations (slightly faster with them off)
 - F4: Toggle frame rate limiter
 - F5: Toggle video capture (only if compiled in)
+- F8: Toggle keymap between SNES and UZEM (Default: SNES)
 - F11: Toggle full screen
+
+The UZEM keymap maps the buttons of the SNES controller according to the Uzem
+emulator with the addition that 'Y' also triggers an SNES Y button press (so
+the mapping is useful on a QWERTZ keyboard). It is not recommended for
+developing games with complex controls since its layout differs much to the
+layout of the real controller.
 
 If you want to see how fast the AVR core can possibly run, turn off debug
 informations and use a small display while the frame rate limiter is off. On
