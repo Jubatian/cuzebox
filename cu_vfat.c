@@ -492,7 +492,7 @@ void  cu_vfat_write(auint pos, auint data)
 
  if ((pos & 0x1FFU) == 0x1FFU){ /* Last byte of sector: Write it */
 
-  fid = cu_vfat_findbypos(pos, &fpos);
+  fid = cu_vfat_findbypos(pos & (~(auint)(0x1FFU)), &fpos);
   if (fid != CU_VFAT_ROOT_SIZE){
    if (fid != vfat_lfile){
     cu_vfat_checkassign(fid); /* Maybe a not yet assigned file */

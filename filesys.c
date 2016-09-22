@@ -174,6 +174,7 @@ boole filesys_open(auint ch, char const* name)
   filesys_ch[ch].rd = TRUE;
   filesys_ch[ch].wr = FALSE;
  }
+ filesys_ch[ch].pos = 0U;
 
  return filesys_ch[ch].rd;
 }
@@ -232,10 +233,8 @@ auint filesys_write(auint ch, uint8 const* src, auint len)
 
  if (!filesys_ch[ch].wr){
   filesys_flush(ch);
-  filesys_ch[ch].fp = fopen(&(filesys_ch[ch].name[0]), "w+b");
+  filesys_ch[ch].fp = fopen(&(filesys_ch[ch].name[0]), "r+b");
   if (filesys_ch[ch].fp == NULL){ /* Maybe has to create the file */
-   filesys_ch[ch].fp = fopen(&(filesys_ch[ch].name[0]), "wb");
-   if (filesys_ch[ch].fp != NULL){ fclose(filesys_ch[ch].fp); }
    filesys_ch[ch].fp = fopen(&(filesys_ch[ch].name[0]), "w+b");
   }
   if (filesys_ch[ch].fp != NULL){
@@ -300,7 +299,6 @@ void  filesys_flush(auint ch)
  if (filesys_ch[ch].rd){ fclose(filesys_ch[ch].fp); }
  filesys_ch[ch].rd  = FALSE;
  filesys_ch[ch].wr  = FALSE;
- filesys_ch[ch].pos = 0U;
 }
 
 
