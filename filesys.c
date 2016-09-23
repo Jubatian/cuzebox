@@ -421,7 +421,22 @@ auint filesys_getsize(char const* name)
 
  if (S_ISDIR(st.st_mode)){ return 0xFFFFFFFFU; }
 
- if (st.st_size > (off_t)(0xFFFFFFFFU)){ return 0xFFFFFFFFU; }
+ /*
+ ** Some really weird possibly compiler bug surfaces here on the Windows
+ ** build with i686-w64-mingw32-gcc, version 4.9.1.
+ **
+ ** if (st.st_size > (off_t)(0xFFFFFFFFU)){ return 0xFFFFFFFFU; }
+ **
+ ** This always evaulates to true when building with that compiler.
+ ** sizeof(off_t) is 4 there, so it should evaulate to false. Interestingly
+ **
+ ** if (st.st_size > (auint)(0xFFFFFFFFU)){ return 0xFFFFFFFFU; }
+ **
+ ** works correctly there, that is, evaulating to false. As a workaround, the
+ ** code below is used which does the intended function.
+ */
+
+ if (((st.st_size >> 16) >> 16) != 0U){ return 0xFFFFFFFFU; }
 
  return st.st_size;
 }
