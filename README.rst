@@ -49,6 +49,7 @@ The emulator itself can be controlled with the following keys:
 - F3: Toggle debug informations (slightly faster with them off)
 - F4: Toggle frame rate limiter
 - F5: Toggle video capture (only if compiled in)
+- F7: Toggle frame merging (slower, eliminates flicker in some games)
 - F8: Toggle keymap between SNES and UZEM (Default: SNES)
 - F11: Toggle full screen
 

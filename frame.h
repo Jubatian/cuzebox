@@ -40,11 +40,12 @@
 ** Attempts to run a frame of emulation (262 display rows ending with a
 ** CU_GET_FRAME result). If no proper sync was generated, it still attempts
 ** to get about a frame worth of lines. If drop is TRUE, the render of the
-** frame is dropped which can be used to help slow targets. Returns the
-** number of rows generated, which is also the number of samples within the
-** audio buffer (normally 262).
+** frame is dropped which can be used to help slow targets. If merge is TRUE,
+** frames following each other are averaged (weak motion blur, cancels out
+** flickers). Returns the number of rows generated, which is also the number
+** of samples within the audio buffer (normally 262).
 */
-auint frame_run(boole drop);
+auint frame_run(boole drop, boole merge);
 
 
 /*

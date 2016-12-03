@@ -46,7 +46,7 @@
 static const char* main_title = "CUzeBox";
 
 /* Cuzebox window title formatter */
-static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u; Freq: %2u.%03u KHz; Keys: %s %s";
+static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u; %sFreq: %2u.%03u KHz; Keys: %s %s";
 
 /* Appended info: None */
 static const char* main_title_fstr_e = "";
@@ -59,6 +59,15 @@ static const char* main_title_fstr_kuzem = "UZEM";
 
 /* Keymap current */
 static const char* main_title_fstr_k;
+
+/* Frame merge ON */
+static const char* main_title_fstr_m1 = "Merge ";
+
+/* Frame merge OFF */
+static const char* main_title_fstr_m0 = "";
+
+/* Frame merge current */
+static const char* main_title_fstr_m;
 
 #ifdef ENABLE_VCAP
 /* Appended info: Capturing */
@@ -100,6 +109,9 @@ static boole main_nolimit = FALSE;
 
 /* Request Uzem style keymapping */
 static boole main_kbuzem = FALSE;
+
+/* Request frame merging (flicker reduction) */
+static boole main_fmerge = TRUE;
 
 /* Previous state of EEPROM changes to save only after a write burst was completed */
 static boole main_peepch = FALSE;
@@ -308,6 +320,7 @@ static void main_loop(void)
       ((cdif * 2U) / 1000000U),
       ((cdif * 2U) / 1000U) % 1000U,
       favg,
+      main_title_fstr_m,
       afreq / 1000U,
       afreq % 1000U,
       main_title_fstr_k,
@@ -363,6 +376,12 @@ static void main_loop(void)
      break;
 #endif
 
+    case SDLK_F7:
+     main_fmerge = !main_fmerge;
+     if (main_fmerge){ main_title_fstr_m = main_title_fstr_m1; }
+     else            { main_title_fstr_m = main_title_fstr_m0; }
+     break;
+
     case SDLK_F8:
      main_kbuzem = !main_kbuzem;
      if (main_kbuzem){ main_title_fstr_k = main_title_fstr_kuzem; }
@@ -381,7 +400,7 @@ static void main_loop(void)
 
 #ifdef ENABLE_VCAP
 
- rows = frame_run(fdrop && (!main_isvcap));
+ rows = frame_run(fdrop && (!main_isvcap), main_fmerge);
  audio_sendframe(frame_getaudio(), rows);
  guicore_update(fdrop);
 
@@ -391,7 +410,7 @@ static void main_loop(void)
 
 #else
 
- rows = frame_run(fdrop);
+ rows = frame_run(fdrop, main_fmerge);
  audio_sendframe(frame_getaudio(), rows);
  guicore_update(fdrop);
 
@@ -429,7 +448,9 @@ int main (int argc, char** argv)
 
  if (main_kbuzem){ main_title_fstr_k = main_title_fstr_kuzem; }
  else            { main_title_fstr_k = main_title_fstr_ksnes; }
- snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, 15U, 734U, main_title_fstr_k, main_title_fstr_e);
+ if (main_fmerge){ main_title_fstr_m = main_title_fstr_m1; }
+ else            { main_title_fstr_m = main_title_fstr_m0; }
+ snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, main_title_fstr_m, 15U, 734U, main_title_fstr_k, main_title_fstr_e);
 
 
  if (!guicore_init(0U, main_title)){
