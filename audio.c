@@ -51,17 +51,33 @@
 #ifndef __EMSCRIPTEN__
 #define AUDIO_OUT_SIZE 2048U
 #else
-#define AUDIO_OUT_SIZE 4096U
+#define AUDIO_OUT_SIZE 1024U
 #endif
 
 /* Preferred buffer filledness. Good value depends on output buffer size.
 ** (A 48KHz output sample roughly equals 3 Uzebox samples, the fill must be
 ** at least the consumed Uzebox sample count to have a chance of smooth
 ** playback) */
+#ifndef __EMSCRIPTEN__
 #define AUDIO_FILL     ((AUDIO_OUT_SIZE / 3U) * 2U)
+#else
+#define AUDIO_FILL     ((AUDIO_OUT_SIZE / 3U) * 8U)
+#endif
 
 /* Ring buffer size, must be a power of 2 (15.7KHz Uzebox samples) */
+#ifndef __EMSCRIPTEN__
 #define AUDIO_BUF_SIZE (AUDIO_OUT_SIZE * 2U)
+#else
+#define AUDIO_BUF_SIZE (AUDIO_OUT_SIZE * 8U)
+#endif
+
+/* Emscripten notes: The total buffer size intentionally is roughly two times
+** larger than the size used for native compiles, but balanced differently,
+** maintaining a longer buffer within the emulator, requesting a rather small
+** one for output. Normally this wouldn't be optimal (if the callback can't
+** happen in time, skips occur), but Emscripten has some pecularity about
+** lags, larger output buffers steeply (NOT propotionally) increasing audio
+** lag. */
 
 
 /* Ring buffer of samples */
