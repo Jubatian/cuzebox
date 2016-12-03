@@ -111,7 +111,11 @@ static boole main_nolimit = FALSE;
 static boole main_kbuzem = FALSE;
 
 /* Request frame merging (flicker reduction) */
+#ifdef FLAG_DISPLAY_FRAMEMERGE
 static boole main_fmerge = TRUE;
+#else
+static boole main_fmerge = FALSE;
+#endif
 
 /* Previous state of EEPROM changes to save only after a write burst was completed */
 static boole main_peepch = FALSE;
@@ -428,6 +432,7 @@ int main (int argc, char** argv)
  cu_state_cpu_t*   ecpu;
  char              tstr[128];
  char const*       game = main_game;
+ auint             flg;
 
  if (argc > 1){ game = argv[1]; }
  filesys_setpath(game, &(tstr[0]), 100U); /* Locate everything beside the game */
@@ -452,8 +457,15 @@ int main (int argc, char** argv)
  else            { main_title_fstr_m = main_title_fstr_m0; }
  snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, main_title_fstr_m, 15U, 734U, main_title_fstr_k, main_title_fstr_e);
 
+ flg = 0U;
+#ifdef FLAG_DISPLAY_SMALL
+ flg |= GUICORE_SMALL;
+#endif
+#ifdef FLAG_DISPLAY_GAMEONLY
+ flg |= GUICORE_GAMEONLY;
+#endif
 
- if (!guicore_init(0U, main_title)){
+ if (!guicore_init(flg, main_title)){
   return 1;
  }
  (void)(audio_init());

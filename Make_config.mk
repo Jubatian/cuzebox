@@ -67,3 +67,23 @@ GO=
 # and it is not possible to have it in the Emscripten build.
 #
 FLAG_VCAP=0
+#
+#
+# Initial display: Game only (1) or show the emulator interface (0) (currently
+# memory occupation & sync signals). The F3 key may toggle it runtime.
+#
+FLAG_DISPLAY_GAMEONLY=0
+#
+#
+# Initial display size: A "small" (1) display is faster (it can be resized,
+# but quality is low). The F2 key may toggle it runtime.
+#
+FLAG_DISPLAY_SMALL=0
+#
+#
+# Initial state of frame merging: Enabling merging (1) makes certain games
+# flickering less (notably which use some sprite cycling algorithms to get
+# around limitations) while making the emulation running somewhat slower.
+# The F7 key may toggle it runtime.
+#
+FLAG_DISPLAY_FRAMEMERGE=1
