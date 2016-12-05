@@ -52,6 +52,7 @@ typedef struct{
  boole capture;         /* Video capture, TRUE: Capture in progress */
  uint8 game[TEXTGUI_STR_MAX]; /* Game name */
  uint8 auth[TEXTGUI_STR_MAX]; /* Game author */
+ auint ports[2];        /* Values on emulator whisper ports (0x39 and 0x3A) */
 }textgui_struct_t;
 
 

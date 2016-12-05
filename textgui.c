@@ -44,8 +44,10 @@ static textgui_struct_t textgui_elements;
 
 
 /* Text GUI character grid assistance functions */
-#define TOP_X(x) (((x) * 6U) + 10U)
-#define TOP_Y(y) (((y) * 6U) +  1U)
+#define TOP_X(x) (((x) * 6U) +  10U)
+#define TOP_Y(y) (((y) * 6U) +   1U)
+#define BOT_X(x) (((x) * 6U) +  10U)
+#define BOT_Y(y) (((y) * 6U) + 267U)
 
 
 
@@ -68,6 +70,21 @@ static uint8 const textgui_top[50U * 3U] = {
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
  12U, ' ', ' ', ' ', '.', ' ', ' ', ' ',  8U,  9U,
+};
+
+/* Map of constant elements of the bottom part */
+static uint8 const textgui_bot[50U * 2U] = {
+ 'P', 'o', 'r', 't', '3', '9', ':', ' ', ' ', ' ',
+ ' ', ';', ' ', '0', 'x', ' ', ' ', ';', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'b', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+
+ 'P', 'o', 'r', 't', '3', 'A', ':', ' ', ' ', ' ',
+ ' ', ';', ' ', '0', 'x', ' ', ' ', ';', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'b', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 };
 
 /* Controller mappings */
@@ -161,6 +178,18 @@ static void textgui_putstr(auint x, auint y, uint8 const* str,
 
 
 /*
+** Converts low 4 bits to hexadecimal digit (uppercase)
+*/
+static uint8 textgui_tohex(auint val)
+{
+ val = val & 0xFU;
+ if (val < 10U){ return ((val + '0')      ); }
+ else          { return ((val + 'A') - 10U); }
+}
+
+
+
+/*
 ** Redraws text GUI elements
 */
 void textgui_draw(void)
@@ -170,12 +199,19 @@ void textgui_draw(void)
  auint          ptc = guicore_getpitch();
  auint          i;
  auint          j;
+ auint          t;
 
  /* Place static stuff */
 
  for (j = 0U; j < 3U; j++){
   for (i = 0U; i < 50U; i++){
    textgui_putchar(TOP_X(i), TOP_Y(j), textgui_top[(j * 50U) + i], pix, ptc, pal);
+  }
+ }
+
+ for (j = 0U; j < 2U; j++){
+  for (i = 0U; i < 50U; i++){
+   textgui_putchar(BOT_X(i), BOT_Y(j), textgui_bot[(j * 50U) + i], pix, ptc, pal);
   }
  }
 
@@ -224,6 +260,17 @@ void textgui_draw(void)
  textgui_putstr(TOP_X(6U), TOP_Y(1U), &(textgui_elements.game[0]), pix, ptc, pal);
  textgui_putstr(TOP_X(6U), TOP_Y(2U), &(textgui_elements.auth[0]), pix, ptc, pal);
 
+ /* Whisper ports */
+
+ for (i = 0U; i < 2U; i++){
+  t = textgui_elements.ports[i];
+  textgui_putdec (BOT_X( 8U), BOT_Y(i), t, pix, ptc, pal);
+  textgui_putchar(BOT_X(15U), BOT_Y(i), textgui_tohex(t >> 4), pix, ptc, pal);
+  textgui_putchar(BOT_X(16U), BOT_Y(i), textgui_tohex(     t), pix, ptc, pal);
+  for (j = 0U; j < 8U; j++){
+   textgui_putchar(BOT_X(19U + j), BOT_Y(i), ((t >> (7U - j)) & 1U) + '0', pix, ptc, pal);
+  }
+ }
 }
 
 
@@ -252,4 +299,6 @@ void textgui_reset(void)
  textgui_elements.capture  = FALSE;
  textgui_elements.game[0]  = 0U;
  textgui_elements.auth[0]  = 0U;
+ textgui_elements.ports[0] = 0U;
+ textgui_elements.ports[1] = 0U;
 }

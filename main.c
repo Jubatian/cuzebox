@@ -257,10 +257,10 @@ static void main_loop(void)
 
  /* Check for EEPROM changes and save as needed */
 
+ ecpu = cu_avr_get_state(); /* Also needed by emulator whisper ports */
  eepch = cu_avr_eeprom_ischanged(TRUE);
  if ( (main_peepch) &&
       (!eepch) ){ /* End of EEPROM write burst */
-  ecpu = cu_avr_get_state();
   eepdump_save(&(ecpu->eepr[0]));
  }
  main_peepch = eepch;
@@ -279,6 +279,9 @@ static void main_loop(void)
 #else
  tgui->capture = FALSE;
 #endif
+
+ tgui->ports[0] = ecpu->iors[0x39U];
+ tgui->ports[1] = ecpu->iors[0x3AU];
 
  if (main_t500 >= 500U){
   main_t500 -= 500U;
@@ -394,6 +397,7 @@ int main (int argc, char** argv)
  char const*       game = main_game;
  auint             flg;
  textgui_struct_t* tgui;
+ boole             uzefile = FALSE;
 
  if (argc > 1){ game = argv[1]; }
  filesys_setpath(game, &(tstr[0]), 100U); /* Locate everything beside the game */
@@ -401,7 +405,8 @@ int main (int argc, char** argv)
  ecpu = cu_avr_get_state();
  eepdump_load(&(ecpu->eepr[0]));
 
- if (!cu_ufile_load(&(tstr[0]), &(ecpu->crom[0]), &ufhead)){
+ uzefile = cu_ufile_load(&(tstr[0]), &(ecpu->crom[0]), &ufhead);
+ if (!uzefile){
   if (!cu_hfile_load(&(tstr[0]), &(ecpu->crom[0]))){
    return 1;
   }
@@ -435,9 +440,11 @@ int main (int argc, char** argv)
 
  /* Add game info if available */
 
- tgui = textgui_getelementptr();
- strncpy((char*)(&(tgui->game[0])), (char const*)(&(ufhead.name[0]  )), TEXTGUI_STR_MAX);
- strncpy((char*)(&(tgui->auth[0])), (char const*)(&(ufhead.author[0])), TEXTGUI_STR_MAX);
+ if (uzefile){
+  tgui = textgui_getelementptr();
+  strncpy((char*)(&(tgui->game[0])), (char const*)(&(ufhead.name[0]  )), TEXTGUI_STR_MAX);
+  strncpy((char*)(&(tgui->auth[0])), (char const*)(&(ufhead.author[0])), TEXTGUI_STR_MAX);
+ }
 
 
 #ifdef __EMSCRIPTEN__
