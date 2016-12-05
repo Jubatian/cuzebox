@@ -28,8 +28,10 @@
 
 
 #include "cu_spi.h"
-#include "cu_spisd.h"
 #include "cu_spir.h"
+#if (FLAG_SELFCONT == 0)
+#include "cu_spisd.h"
+#endif
 
 
 
@@ -39,7 +41,9 @@
 */
 void  cu_spi_reset(auint cycle)
 {
+#if (FLAG_SELFCONT == 0)
  cu_spisd_reset(cycle);
+#endif
  cu_spir_reset (cycle);
 }
 
@@ -52,9 +56,11 @@ void  cu_spi_cs_set(auint id, boole ena, auint cycle)
 {
  switch (id){
 
+#if (FLAG_SELFCONT == 0)
   case CU_SPI_CS_SD:
    cu_spisd_cs_set(ena, cycle);
    break;
+#endif
 
   case CU_SPI_CS_RAM:
    cu_spir_cs_set(ena, cycle);
@@ -73,7 +79,9 @@ void  cu_spi_cs_set(auint id, boole ena, auint cycle)
 */
 void  cu_spi_send(auint data, auint cycle)
 {
+#if (FLAG_SELFCONT == 0)
  cu_spisd_send(data, cycle);
+#endif
  cu_spir_send (data, cycle);
 }
 
@@ -87,7 +95,9 @@ auint cu_spi_recv(auint cycle)
 {
  auint ret = 0xFFU;
 
+#if (FLAG_SELFCONT == 0)
  ret &= cu_spisd_recv(cycle);
+#endif
  ret &= cu_spir_recv (cycle);
 
  return ret;

@@ -9,8 +9,11 @@
 /cuzebox.js
 /assets/chconv
 /assets/chconv.exe
+/assets/binconv
+/assets/binconv.exe
 # The gamefile.uze ROM needed by the Emscripten build
 /gamefile.uze
+/gamefile.c
 # If the program created various files, ignore those too
 /eeprom.bin
 /capture.mp4

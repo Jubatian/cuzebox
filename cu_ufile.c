@@ -59,30 +59,30 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
  auint len;
 
  if (!filesys_open(FILESYS_CH_EMU, fname)){
-  fprintf(stderr, "%s%sCouldn't open %s.\n", cu_id, cu_err, fname);
+  print_error("%s%sCouldn't open %s.\n", cu_id, cu_err, fname);
   goto ex_none;
  }
 
  rv = filesys_read(FILESYS_CH_EMU, buf, 512U);
  if (rv != 512){
-  fprintf(stderr, "%s%sNot enough data for header in %s.\n", cu_id, cu_err, fname);
+  print_error("%s%sNot enough data for header in %s.\n", cu_id, cu_err, fname);
   goto ex_file;
  }
 
  for (i = 0U; i < 6U; i++){
   if (buf[i] != cu_magic[i]){
-   fprintf(stderr, "%s%s%s is not a UzeRom file.\n", cu_id, cu_err, fname);
+   print_error("%s%s%s is not a UzeRom file.\n", cu_id, cu_err, fname);
    goto ex_file;
   }
  }
 
  if (buf[6] != 1U){
-  fprintf(stderr, "%s%s%s has unknown version (%d).\n", cu_id, cu_war, fname, buf[6]);
+  print_error("%s%s%s has unknown version (%d).\n", cu_id, cu_war, fname, buf[6]);
  }
  head->version = buf[6];
 
  if (buf[7] != 0U){
-  fprintf(stderr, "%s%s%s has unknown target UC (%d).\n", cu_id, cu_err, fname, buf[7]);
+  print_error("%s%s%s has unknown target UC (%d).\n", cu_id, cu_err, fname, buf[7]);
   goto ex_file;
  }
  head->target = buf[7];
@@ -92,7 +92,7 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
        ((auint)(buf[10]) << 16) +
        ((auint)(buf[11]) << 24);
  if (len > 65535U){
-  fprintf(stderr, "%s%s%s has too large program size (%d).\n", cu_id, cu_err, fname, len);
+  print_error("%s%s%s has too large program size (%d).\n", cu_id, cu_err, fname, len);
   goto ex_file;
  }
  head->pmemsize = len;
@@ -120,7 +120,7 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
 
  rv = filesys_read(FILESYS_CH_EMU, cmem, len);
  if (rv != len){
-  fprintf(stderr, "%s%sNot enough data for program in %s.\n", cu_id, cu_err, fname);
+  print_error("%s%sNot enough data for program in %s.\n", cu_id, cu_err, fname);
   goto ex_file;
  }
 
@@ -128,9 +128,9 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
 
  /* Print out successful result */
 
- fprintf(stdout,
+ print_message(
   "%sSuccesfully loaded program from %s:\n", cu_id, fname);
- fprintf(stdout,
+ print_message(
   "\tName .......: %s\n"
   "\tAuthor .....: %s\n"
   "\tYear .......: %d\n"

@@ -209,7 +209,7 @@ boole guicore_init(auint flags, const char* title)
 #endif
 
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0){
-   fprintf(stderr, guicore_sdlerr, SDL_GetError());
+   print_error(guicore_sdlerr, SDL_GetError());
    goto fail_n;
   }
 
@@ -239,7 +239,7 @@ boole guicore_init(auint flags, const char* title)
 
  guicore_surface = SDL_SetVideoMode(wndw, wndh, 32U, SDL_HWSURFACE);
  if (guicore_surface == NULL){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
+  print_error(guicore_sdlerr, SDL_GetError());
   goto fail_qt;
  }
 
@@ -274,7 +274,7 @@ boole guicore_init(auint flags, const char* title)
       wndh,
       wndflags);
   if (guicore_window == NULL){
-   fprintf(stderr, guicore_sdlerr, SDL_GetError());
+   print_error(guicore_sdlerr, SDL_GetError());
    goto fail_qt;
   }
   SDL_SetWindowMinimumSize(guicore_window, wndw, wndh);
@@ -284,7 +284,7 @@ boole guicore_init(auint flags, const char* title)
       -1,
       renflags);
   if (guicore_renderer == NULL){
-   fprintf(stderr, guicore_sdlerr, SDL_GetError());
+   print_error(guicore_sdlerr, SDL_GetError());
    goto fail_wnd;
   }
 
@@ -292,7 +292,7 @@ boole guicore_init(auint flags, const char* title)
 
  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
  if (SDL_RenderSetLogicalSize(guicore_renderer, wndw, wndh) != 0U){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
+  print_error(guicore_sdlerr, SDL_GetError());
   goto fail_ren;
  }
 
@@ -320,7 +320,7 @@ boole guicore_init(auint flags, const char* title)
   }
  }
  if (res == SDL_PIXELFORMAT_UNKNOWN){
-  fprintf(stderr, "Warning: Display doesn't support a known 32 bpp format.");
+  print_error("Warning: Display doesn't support a known 32 bpp format.");
   res = SDL_PIXELFORMAT_RGBX8888;
  }
 
@@ -366,7 +366,7 @@ boole guicore_init(auint flags, const char* title)
      wndw,
      wndh);
  if (guicore_texture == NULL){
-  fprintf(stderr, guicore_sdlerr, SDL_GetError());
+  print_error(guicore_sdlerr, SDL_GetError());
   goto fail_ren;
  }
 

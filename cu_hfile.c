@@ -60,7 +60,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
  uint8 byte;
 
  if (!filesys_open(FILESYS_CH_EMU, fname)){
-  fprintf(stderr, "%s%sCouldn't open %s.\n", cu_id, cu_err, fname);
+  print_error("%s%sCouldn't open %s.\n", cu_id, cu_err, fname);
   goto ex_none;
  }
 
@@ -77,7 +77,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
   }
   buf[wp] = 0U;
   if (wp == 0U){
-   fprintf(stderr, "%s%sEOF without end marker on line %u in %s.\n", cu_id, cu_war, lpos, fname);
+   print_error("%s%sEOF without end marker on line %u in %s.\n", cu_id, cu_war, lpos, fname);
    goto ex_ok;
   }
 
@@ -85,7 +85,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
        (buf[0] != (uint8)('\n')) &&
        (buf[0] != (uint8)('\r')) &&
        (buf[0] != 0U) ){
-   fprintf(stderr, "%s%sInvalid content on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+   print_error("%s%sInvalid content on line %u in %s.\n", cu_id, cu_err, lpos, fname);
    goto ex_file;
   }
 
@@ -109,7 +109,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
                (buf[rp] <= (uint8)('F')) ){
      dv |= (buf[rp] - (uint8)('A') + 10U);
     }else{
-     fprintf(stderr, "%s%sInvalid character on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+     print_error("%s%sInvalid character on line %u in %s.\n", cu_id, cu_err, lpos, fname);
      goto ex_file;
     }
     lh ^= 1U;
@@ -121,7 +121,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
     rp ++;
    }
    if (lh != 0U){
-    fprintf(stderr, "%s%sOdd count of hex characters on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+    print_error("%s%sOdd count of hex characters on line %u in %s.\n", cu_id, cu_err, lpos, fname);
     goto ex_file;
    }
 
@@ -132,18 +132,18 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
     dv += dec[rp];
    }
    if ((dv & 0xFFU) != 0U){
-    fprintf(stderr, "%s%sBad checksum on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+    print_error("%s%sBad checksum on line %u in %s.\n", cu_id, cu_err, lpos, fname);
     goto ex_file;
    }
 
    /* Verify data size */
 
    if (wp < 5U){
-    fprintf(stderr, "%s%sToo short line %u in %s.\n", cu_id, cu_err, lpos, fname);
+    print_error("%s%sToo short line %u in %s.\n", cu_id, cu_err, lpos, fname);
     goto ex_file;
    }
    if (dec[0] != (wp - 5U)){
-    fprintf(stderr, "%s%sBad data count on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+    print_error("%s%sBad data count on line %u in %s.\n", cu_id, cu_err, lpos, fname);
     goto ex_file;
    }
 
@@ -156,7 +156,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
             ((auint)(dec[1]) << 8) |
             ((auint)(dec[2])     );
      if (cpos > (0x10000U - (auint)(dec[0]))){
-      fprintf(stderr, "%s%sToo big address on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+      print_error("%s%sToo big address on line %u in %s.\n", cu_id, cu_err, lpos, fname);
       goto ex_file;
      }
      for (rp = 0U; rp < dec[0]; rp ++){
@@ -170,7 +170,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
 
     case 0x04U: /* Extended linear address */
      if (dec[0] != 2U){
-      fprintf(stderr, "%s%sInvalid Ext. linear address on line %u in %s.\n", cu_id, cu_err, lpos, fname);
+      print_error("%s%sInvalid Ext. linear address on line %u in %s.\n", cu_id, cu_err, lpos, fname);
       goto ex_file;
      }
      cpos = ((auint)(dec[4]) << 24) |
@@ -178,7 +178,7 @@ boole cu_hfile_load(char const* fname, uint8* cmem)
      break;
 
     default:    /* Invalid for AVR programming */
-     fprintf(stderr, "%s%sInvalid record type on line %u in %s.\n", cu_id, cu_war, lpos, fname);
+     print_error("%s%sInvalid record type on line %u in %s.\n", cu_id, cu_war, lpos, fname);
      break;
 
    }
@@ -197,7 +197,7 @@ ex_ok:
 
  /* Print out successful result */
 
- fprintf(stdout, "%sSuccesfully loaded program from %s\n", cu_id, fname);
+ print_message("%sSuccesfully loaded program from %s\n", cu_id, fname);
 
  /* Successful */
 

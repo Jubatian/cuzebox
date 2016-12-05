@@ -377,7 +377,7 @@ void  cu_vfat_reset(void)
   siz = filesys_find_next(&(hname[0]), CU_VFAT_HNAME_SIZE);
   if (siz == 0xFFFFFFFFU){ break; }
 
-  printf("Found: %s (%u bytes)\n", &(hname[0]), siz);
+  print_message("Found: %s (%u bytes)\n", &(hname[0]), siz);
 
   tpos = cpos + ((siz + 32767U) >> 15); /* File's allocation */
   if (siz == 0U){ tpos = cpos + 1U; }   /* Empty file */

@@ -45,6 +45,23 @@
 
 
 
+/* Macro for the message / error string output. This is used to redirect or
+** cancel messages or errors in certain builds. */
+#ifdef __EMSCRIPTEN__
+#if (FLAG_SELFCONT != 0)
+#define print_error(...)
+#define print_message(...)
+#else
+#define print_error(...) fprintf(stderr, __VA_ARGS__)
+#define print_message(...) fprintf(stdout, __VA_ARGS__)
+#endif
+#else
+#define print_error(...) fprintf(stderr, __VA_ARGS__)
+#define print_message(...) fprintf(stdout, __VA_ARGS__)
+#endif
+
+
+
 /* Macro for enforcing 32 bit wrapping math (does nothing if auint is 32 bits)
 ** This is used for manipulating values which are meant to be stored in 32
 ** bits (such as in an emulator state), so 64 bit unsigned variables wouldn't

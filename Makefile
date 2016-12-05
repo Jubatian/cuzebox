@@ -47,21 +47,31 @@ OBJECTS += $(OBD)/cu_avrc.o
 OBJECTS += $(OBD)/cu_avrfg.o
 OBJECTS += $(OBD)/cu_ctr.o
 OBJECTS += $(OBD)/cu_spi.o
-OBJECTS += $(OBD)/cu_spisd.o
 OBJECTS += $(OBD)/cu_spir.o
+ifeq ($(FLAG_SELFCONT), 0)
 OBJECTS += $(OBD)/cu_vfat.o
+OBJECTS += $(OBD)/cu_spisd.o
 OBJECTS += $(OBD)/filesys.o
+endif
+OBJECTS += $(OBD)/eepdump.o
 OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/frame.o
-OBJECTS += $(OBD)/eepdump.o
 OBJECTS += $(OBD)/chars.o
 OBJECTS += $(OBD)/textgui.o
-ifeq ($(ENABLE_VCAP), 1)
+ifneq ($(ENABLE_VCAP), 0)
 OBJECTS += $(OBD)/avconv.o
 endif
+ifneq ($(FLAG_SELFCONT), 0)
+OBJECTS += $(OBD)/gamefile.o
+OBJECTS += $(OBD)/filesmin.o
+endif
 ifeq ($(TSYS),emscripten)
+ifeq ($(FLAG_SELFCONT), 0)
 ROMFILE  = gamefile.uze
+else
+ROMFILE  =
+endif
 else
 ROMFILE  =
 endif
@@ -72,6 +82,9 @@ DEPS     = *.h Makefile Make_defines.mk Make_config.mk
 all: $(OUT)
 clean:
 	rm    -f $(OBJECTS) $(OUT)
+	rm    -f gamefile.c
+	rm    -f assets/$(CHCONV)
+	rm    -f assets/$(BINCONV)
 	rm -d -f $(OBD)
 
 $(ROMFILE):
@@ -86,12 +99,20 @@ $(OBD):
 # Special: Generate character set from the charset data. On Windows, whatever
 # may happen, so especially chars.c is never explicitly removed, and is
 # included in a Git repository.
+#
+#chars.c: assets/$(CHCONV)
+#	assets/$(CHCONV) >chars.c
 
-chars.c: assets/$(CHCONV)
-	assets/$(CHCONV) >chars.c
+assets/$(CHCONV): assets/chconv.c assets/charset.h
+	$(CCNAT) $< -o $@ -Wall
 
-assets/$(CHCONV):
-	$(CCNAT) assets/chconv.c -o $@ -Wall
+# Special: Generate C source from a gamefile.uze for a self-contained build.
+
+gamefile.c: assets/$(BINCONV) gamefile.uze
+	assets/$(BINCONV) <gamefile.uze >gamefile.c
+
+assets/$(BINCONV): assets/binconv.c
+	$(CCNAT) $< -o $@ -Wall
 
 # Objects
 
@@ -131,6 +152,9 @@ $(OBD)/cu_vfat.o: cu_vfat.c $(DEPS)
 $(OBD)/filesys.o: filesys.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
+$(OBD)/filesmin.o: filesmin.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSPD)
+
 $(OBD)/guicore.o: guicore.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
@@ -146,11 +170,14 @@ $(OBD)/eepdump.o: eepdump.c $(DEPS)
 $(OBD)/avconv.o: avconv.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
+$(OBD)/textgui.o: textgui.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSPD)
+
 $(OBD)/chars.o: chars.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
-$(OBD)/textgui.o: textgui.c $(DEPS)
-	$(CC) -c $< -o $@ $(CFSPD)
+$(OBD)/gamefile.o: gamefile.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
 
 
 .PHONY: all clean

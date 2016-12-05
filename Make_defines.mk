@@ -39,16 +39,16 @@ CFLAGS=
 # The compiler
 #
 ifeq ($(TSYS),linux)
-CCOMP?=gcc
-CCNAT?=$(CCOMP)
+CCNAT?=gcc
+CCOMP?=$(CCNAT)
 endif
 ifeq ($(TSYS),windows_mingw)
-CCOMP?=gcc
-CCNAT?=$(CCOMP)
+CCNAT?=gcc
+CCOMP?=$(CCNAT)
 endif
 ifeq ($(TSYS),emscripten)
-CCOMP?=emcc
 CCNAT?=gcc
+CCOMP?=emcc
 endif
 #
 #
@@ -69,6 +69,7 @@ CFLAGS+= -DTARGET_WINDOWS_MINGW -Dmain=SDL_main
 LINKB= -lmingw32 -lSDL2main -lSDL2 -mwindows
 ENABLE_VCAP=$(FLAG_VCAP)
 CHCONV=chconv.exe
+BINCONV=binconv.exe
 endif
 #
 #
@@ -77,8 +78,10 @@ endif
 ifeq ($(TSYS),emscripten)
 OUT=cuzebox.html
 CFLAGS+= -DTARGET_EMSCRIPTEN -DUSE_SDL1 -s USE_SDL=1 -s NO_EXIT_RUNTIME=1 -s NO_DYNAMIC_EXECUTION=1
-LINKB= --preload-file gamefile.uze
 ENABLE_VCAP=0
+ifeq ($(FLAG_SELFCONT),0)
+LINKB= --preload-file gamefile.uze
+endif
 endif
 #
 #
@@ -109,23 +112,27 @@ LINKB?=
 LINK= $(LINKB)
 OUT?=cuzebox
 CHCONV?=chconv
+BINCONV?=binconv
 CC=$(CCOMP)
-ifeq ($(ENABLE_VCAP),1)
+ifneq ($(ENABLE_VCAP),0)
 CFLAGS+= -DENABLE_VCAP
 endif
-ifeq ($(FLAG_DISPLAY_GAMEONLY),1)
+ifneq ($(FLAG_DISPLAY_GAMEONLY),0)
 CFLAGS+= -DFLAG_DISPLAY_GAMEONLY
 endif
-ifeq ($(FLAG_DISPLAY_SMALL),1)
+ifneq ($(FLAG_DISPLAY_SMALL),0)
 CFLAGS+= -DFLAG_DISPLAY_SMALL
 endif
-ifeq ($(FLAG_DISPLAY_FRAMEMERGE),1)
+ifneq ($(FLAG_DISPLAY_FRAMEMERGE),0)
 CFLAGS+= -DFLAG_DISPLAY_FRAMEMERGE
+endif
+ifneq ($(FLAG_SELFCONT),0)
+CFLAGS+= -DFLAG_SELFCONT
 endif
 
 OBD=_obj_
 
-CFLAGS+= -Wall -pipe -pedantic
+CFLAGS+= -Wall -pipe -pedantic -Wno-variadic-macros
 ifneq ($(CC_BIN),)
 CFLAGS+= -B$(CC_BIN)
 endif

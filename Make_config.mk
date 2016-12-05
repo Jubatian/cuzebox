@@ -50,6 +50,10 @@ TSYS=linux
 #CC_INC=SDL2-2.0.4/i686-w64-mingw32/include
 #CC_LIB=SDL2-2.0.4/i686-w64-mingw32/lib
 #CCOMP=i686-w64-mingw32-gcc
+#CCNAT=gcc
+#
+# Note that for Emscripten builds you might also have to define these to
+# compile assets necessary to build the emulator.
 #
 CC_BIN=
 CC_INC=
@@ -87,3 +91,11 @@ FLAG_DISPLAY_SMALL=0
 # The F7 key may toggle it runtime.
 #
 FLAG_DISPLAY_FRAMEMERGE=1
+#
+#
+# Perform a self-contained build without filesystem access. This can only be
+# done for games which don't demand files from the SD card. It integrates the
+# game (gamefile.uze) in the emulator executable, for Emscripten this is a
+# smaller build.
+#
+FLAG_SELFCONT=0
