@@ -157,7 +157,7 @@ void avconv_push(uint8 const* samples, auint len)
 
   /* Output stuff */
 
-  pixbuf = guicore_getpixbuf() + (640U * 18U); /* At game area top */
+  pixbuf = guicore_getpixbuf() + (640U * 20U); /* At game area top */
   fwrite(pixbuf, (640U * 228U) * sizeof(uint32), 1U, avconv_pipe_v);
   fwrite(&(samp48k[0]), areq, 1U, avconv_pipe_a);
 

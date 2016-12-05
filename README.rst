@@ -129,3 +129,10 @@ frames due to being unable to keep up with the task.
 
 When you exit the emulator, it will launch a slow video encoding step when it
 produces proper 720p H.264 video from the material it recorded.
+
+Note that the state of frame merging (F7) notably affects the performance of
+video captures and the output size. Having it on results in larger video
+sizes, slower encoding, and worse emulation performance. It should be turned
+off for games which don't need it, but should be kept on where necessary (if
+the game in question uses some type of sprite rotation or effect based on
+rapidly alternating between two images).
