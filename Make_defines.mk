@@ -40,12 +40,15 @@ CFLAGS=
 #
 ifeq ($(TSYS),linux)
 CCOMP?=gcc
+CCNAT?=$(CCOMP)
 endif
 ifeq ($(TSYS),windows_mingw)
 CCOMP?=gcc
+CCNAT?=$(CCOMP)
 endif
 ifeq ($(TSYS),emscripten)
 CCOMP?=emcc
+CCNAT?=gcc
 endif
 #
 #
@@ -65,6 +68,7 @@ OUT=cuzebox.exe
 CFLAGS+= -DTARGET_WINDOWS_MINGW -Dmain=SDL_main
 LINKB= -lmingw32 -lSDL2main -lSDL2 -mwindows
 ENABLE_VCAP=$(FLAG_VCAP)
+CHCONV=chconv.exe
 endif
 #
 #
@@ -104,6 +108,7 @@ endif
 LINKB?=
 LINK= $(LINKB)
 OUT?=cuzebox
+CHCONV?=chconv
 CC=$(CCOMP)
 ifeq ($(ENABLE_VCAP),1)
 CFLAGS+= -DENABLE_VCAP

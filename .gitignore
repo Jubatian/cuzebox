@@ -7,6 +7,8 @@
 /cuzebox.data
 /cuzebox.html.mem
 /cuzebox.js
+/assets/chconv
+/assets/chconv.exe
 # The gamefile.uze ROM needed by the Emscripten build
 /gamefile.uze
 # If the program created various files, ignore those too

@@ -49,7 +49,7 @@
 
 /* Target pixel buffer offsets for game only */
 #define TGOG_X   5U
-#define TGOG_Y   18U
+#define TGOG_Y   19U
 
 
 

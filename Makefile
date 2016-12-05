@@ -55,6 +55,8 @@ OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/frame.o
 OBJECTS += $(OBD)/eepdump.o
+OBJECTS += $(OBD)/chars.o
+OBJECTS += $(OBD)/textgui.o
 ifeq ($(ENABLE_VCAP), 1)
 OBJECTS += $(OBD)/avconv.o
 endif
@@ -80,6 +82,18 @@ $(OUT): $(OBD) $(OBJECTS) $(ROMFILE)
 
 $(OBD):
 	mkdir $(OBD)
+
+# Special: Generate character set from the charset data. On Windows, whatever
+# may happen, so especially chars.c is never explicitly removed, and is
+# included in a Git repository.
+
+chars.c: assets/$(CHCONV)
+	assets/$(CHCONV) >chars.c
+
+assets/$(CHCONV):
+	$(CCNAT) assets/chconv.c -o $@ -Wall
+
+# Objects
 
 $(OBD)/main.o: main.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
@@ -131,6 +145,12 @@ $(OBD)/eepdump.o: eepdump.c $(DEPS)
 
 $(OBD)/avconv.o: avconv.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
+
+$(OBD)/chars.o: chars.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
+
+$(OBD)/textgui.o: textgui.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSPD)
 
 
 .PHONY: all clean

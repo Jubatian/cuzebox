@@ -29,6 +29,7 @@
 
 #include "frame.h"
 #include "guicore.h"
+#include "textgui.h"
 
 
 
@@ -381,8 +382,13 @@ auint frame_run(boole drop, boole merge)
  ** would produce. */
 
  if (!drop){
-  frame_clear(pix, ptc, 0U, 0U, 640U, 270U, pal[0]);
+  frame_clear(pix, ptc, 0U, 0U, 640U, 280U, pal[0]);
  }
+
+ /* Shift whole display a little down to give more clearance to the text info
+ ** on the top */
+
+ pix = pix + (1U * ptc);
 
  /* Build the frame */
 
@@ -570,6 +576,10 @@ auint frame_run(boole drop, boole merge)
  }
 
  frame_ctr ++;
+
+ /* Add text GUI elements */
+
+ textgui_draw();
 
  return ret;
 }

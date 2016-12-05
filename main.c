@@ -36,6 +36,7 @@
 #include "audio.h"
 #include "frame.h"
 #include "eepdump.h"
+#include "textgui.h"
 #ifdef ENABLE_VCAP
 #include "avconv.h"
 #endif
@@ -43,36 +44,7 @@
 
 
 /* Initial title */
-static const char* main_title = "CUzeBox";
-
-/* Cuzebox window title formatter */
-static const char* main_title_fstr = "CUzeBox CPU: %3u%% (%2u.%03u MHz); FPS: %2u; %sFreq: %2u.%03u KHz; Keys: %s %s";
-
-/* Appended info: None */
-static const char* main_title_fstr_e = "";
-
-/* Keymap: SNES */
-static const char* main_title_fstr_ksnes = "SNES";
-
-/* Keymap: UZEM */
-static const char* main_title_fstr_kuzem = "UZEM";
-
-/* Keymap current */
-static const char* main_title_fstr_k;
-
-/* Frame merge ON */
-static const char* main_title_fstr_m1 = "Merge ";
-
-/* Frame merge OFF */
-static const char* main_title_fstr_m0 = "";
-
-/* Frame merge current */
-static const char* main_title_fstr_m;
-
-#ifdef ENABLE_VCAP
-/* Appended info: Capturing */
-static const char* main_title_fstr_c = "(Capturing)";
-#endif
+static const char main_title[] = "CUzeBox";
 
 /* Exit request */
 static boole main_exit = FALSE;
@@ -223,10 +195,9 @@ static void main_loop(void)
  auint afreq;
  boole fdrop = FALSE;
  boole eepch;
- char  tstr[128];
  SDL_Event sdlevent;
  cu_state_cpu_t* ecpu;
- const char*     titext = main_title_fstr_e;
+ textgui_struct_t* tgui;
 
  /* First "sandbox" the drift to silently skip main loops if the emulator is
  ** running too fast */
@@ -294,13 +265,19 @@ static void main_loop(void)
  }
  main_peepch = eepch;
 
- /* Generate FPS info */
+ /* Generate various emulator info for the GUI */
 
  main_t500 += tdif;
  if (!fdrop){ main_t5_frc ++; }
 
+ tgui = textgui_getelementptr();
+
+ tgui->merge   = main_fmerge;
+ tgui->kbuzem  = main_kbuzem;
 #ifdef ENABLE_VCAP
- if (main_isvcap){ titext = main_title_fstr_c; }
+ tgui->capture = main_isvcap;
+#else
+ tgui->capture = FALSE;
 #endif
 
  if (main_t500 >= 500U){
@@ -316,22 +293,9 @@ static void main_loop(void)
 
   afreq = audio_getfreq();
 
-  snprintf(
-      &(tstr[0]),
-      128U,
-      main_title_fstr,
-      (cdif + 71591U) / 143182U,
-      ((cdif * 2U) / 1000000U),
-      ((cdif * 2U) / 1000U) % 1000U,
-      favg,
-      main_title_fstr_m,
-      afreq / 1000U,
-      afreq % 1000U,
-      main_title_fstr_k,
-      titext);
-  guicore_setcaption(&(tstr[0]));
-  fputs(&(tstr[0]), stdout);
-  fputs("\n",       stdout);
+  tgui->cpufreq  = cdif * 2U;
+  tgui->aufreq   = afreq;
+  tgui->dispfreq = favg * 1000U;
  }
 
  /* Process events */
@@ -382,14 +346,10 @@ static void main_loop(void)
 
     case SDLK_F7:
      main_fmerge = !main_fmerge;
-     if (main_fmerge){ main_title_fstr_m = main_title_fstr_m1; }
-     else            { main_title_fstr_m = main_title_fstr_m0; }
      break;
 
     case SDLK_F8:
      main_kbuzem = !main_kbuzem;
-     if (main_kbuzem){ main_title_fstr_k = main_title_fstr_kuzem; }
-     else            { main_title_fstr_k = main_title_fstr_ksnes; }
      break;
 
     default:
@@ -433,6 +393,7 @@ int main (int argc, char** argv)
  char              tstr[128];
  char const*       game = main_game;
  auint             flg;
+ textgui_struct_t* tgui;
 
  if (argc > 1){ game = argv[1]; }
  filesys_setpath(game, &(tstr[0]), 100U); /* Locate everything beside the game */
@@ -450,12 +411,6 @@ int main (int argc, char** argv)
 
  fprintf(stdout, "Starting emulator\n");
 
-
- if (main_kbuzem){ main_title_fstr_k = main_title_fstr_kuzem; }
- else            { main_title_fstr_k = main_title_fstr_ksnes; }
- if (main_fmerge){ main_title_fstr_m = main_title_fstr_m1; }
- else            { main_title_fstr_m = main_title_fstr_m0; }
- snprintf(&(tstr[0]), 128U, main_title_fstr, 100U, 28U, 636U, 60U, main_title_fstr_m, 15U, 734U, main_title_fstr_k, main_title_fstr_e);
 
  flg = 0U;
 #ifdef FLAG_DISPLAY_SMALL
@@ -475,6 +430,14 @@ int main (int argc, char** argv)
  main_t5_cc = cu_avr_getcycle();
  main_ptick = SDL_GetTicks();
  audio_reset();
+ textgui_reset();
+
+
+ /* Add game info if available */
+
+ tgui = textgui_getelementptr();
+ strncpy((char*)(&(tgui->game[0])), (char const*)(&(ufhead.name[0]  )), TEXTGUI_STR_MAX);
+ strncpy((char*)(&(tgui->auth[0])), (char const*)(&(ufhead.author[0])), TEXTGUI_STR_MAX);
 
 
 #ifdef __EMSCRIPTEN__
