@@ -59,6 +59,7 @@ OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/frame.o
 OBJECTS += $(OBD)/chars.o
 OBJECTS += $(OBD)/textgui.o
+OBJECTS += $(OBD)/conout.o
 ifneq ($(ENABLE_VCAP), 0)
 OBJECTS += $(OBD)/avconv.o
 endif
@@ -172,6 +173,9 @@ $(OBD)/avconv.o: avconv.c $(DEPS)
 
 $(OBD)/textgui.o: textgui.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
+
+$(OBD)/conout.o: conout.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
 
 $(OBD)/chars.o: chars.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)

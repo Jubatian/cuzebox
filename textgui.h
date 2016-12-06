@@ -58,9 +58,10 @@ typedef struct{
 
 
 /*
-** Redraws text GUI elements
+** Redraws text GUI elements. If nogrf is set, no on-screen graphics are
+** generated. Terminal output is generated on every 30th call (1/2 secs).
 */
-void textgui_draw(void);
+void textgui_draw(boole nogrf);
 
 
 /*

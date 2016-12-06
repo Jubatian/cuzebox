@@ -414,7 +414,7 @@ int main (int argc, char** argv)
 
  ecpu->wd_seed = rand(); /* Seed the WD timeout used for PRNG seed in Uzebox games */
 
- print_message("Starting emulator\n");
+ print_unf("Starting emulator\n");
 
 
  flg = 0U;

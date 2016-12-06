@@ -99,3 +99,10 @@ FLAG_DISPLAY_FRAMEMERGE=1
 # smaller build.
 #
 FLAG_SELFCONT=0
+#
+#
+# Disable all console output. On some systems for some reason console output
+# can be very slow, this eliminates all such calls, also reducing the
+# application size (but good bye, debug info!).
+#
+FLAG_NOCONSOLE=0

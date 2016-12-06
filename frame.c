@@ -367,6 +367,7 @@ auint frame_run(boole drop, boole merge)
  auint           k;
  auint           adr;
  auint           col;
+ boole           gonly = ((guicore_getflags() & GUICORE_GAMEONLY) != 0U);
  cu_row_t const* erowd;
  cu_frameinfo_t const* finfo;
  uint32          ppal[256U];
@@ -382,7 +383,11 @@ auint frame_run(boole drop, boole merge)
  ** would produce. */
 
  if (!drop){
-  frame_clear(pix, ptc, 0U, 0U, 640U, 280U, pal[0]);
+  if (!gonly){
+   frame_clear(pix, ptc,  0U,  0U, 640U, 280U, pal[0]);
+  }else{
+   frame_clear(pix, ptc, 10U, 18U, 620U, 230U, pal[0]);
+  }
  }
 
  /* Shift whole display a little down to give more clearance to the text info
@@ -504,82 +509,86 @@ auint frame_run(boole drop, boole merge)
  }
  if (i != 0U){ frame_isauz = FALSE; } /* There was valid audio in the original contents */
 
- /* Fill in other areas providing info */
+ /* Fill in other areas providing info (only if they are displayed) */
 
- /* Produce sync info sidebar */
+ if (!gonly){
 
- if (!drop){
-  finfo = cu_avr_get_frameinfo();
+  /* Produce sync info sidebar */
 
-  for (row =   0U; row < 252U; row ++){ /* Display pulses */
-   frame_synrep(pix, ptc,   0U, row,      finfo->pulse[row].rise, pal);
-   frame_synrep(pix, ptc, 315U, row,      finfo->pulse[row].fall, pal);
+  if (!drop){
+   finfo = cu_avr_get_frameinfo();
+
+   for (row =   0U; row < 252U; row ++){ /* Display pulses */
+    frame_synrep(pix, ptc,   0U, row,      finfo->pulse[row].rise, pal);
+    frame_synrep(pix, ptc, 315U, row,      finfo->pulse[row].fall, pal);
+   }
+   if (finfo->rowcdif == 0U){            /* Row count separator */
+    frame_pixsyn(pix, ptc,   0U, 252U, frame_syn_ng, pal);
+    frame_pixsyn(pix, ptc, 315U, 252U, frame_syn_ng, pal);
+   }else{
+    frame_pixsyn(pix, ptc,   0U, 252U, frame_syn_nf, pal);
+    frame_pixsyn(pix, ptc, 315U, 252U, frame_syn_nf, pal);
+   }
+   for (row = 252U; row < 271U; row ++){ /* VSync pulses */
+    frame_synrep(pix, ptc,   0U, row + 1U, finfo->pulse[row].rise, pal);
+    frame_synrep(pix, ptc, 315U, row + 1U, finfo->pulse[row].fall, pal);
+   }
   }
-  if (finfo->rowcdif == 0U){            /* Row count separator */
-   frame_pixsyn(pix, ptc,   0U, 252U, frame_syn_ng, pal);
-   frame_pixsyn(pix, ptc, 315U, 252U, frame_syn_ng, pal);
-  }else{
-   frame_pixsyn(pix, ptc,   0U, 252U, frame_syn_nf, pal);
-   frame_pixsyn(pix, ptc, 315U, 252U, frame_syn_nf, pal);
+
+  /* Produce memory access info blocks */
+
+  mem = cu_avr_get_meminfo();
+
+  for (k = 0U; k < 16U; k ++){
+   for (j = 0U; j < 16U; j ++){
+    for (i = 0U; i < 16U; i ++){
+     adr = (((k + 1U) & 0xFU) << 8) |
+           (j << 4) |
+           (i     );
+     if ((frame_ctr & 0x7U) == 0U){
+      if ((frame_memf[adr] & 0x07U) != 0U){ frame_memf[adr] -= 0x01U; }
+      if ((frame_memf[adr] & 0x38U) != 0U){ frame_memf[adr] -= 0x08U; }
+      if ((mem[adr]) & CU_MEM_R){ frame_memf[adr] |= 0x38U; }
+      if ((mem[adr]) & CU_MEM_W){ frame_memf[adr] |= 0x07U; }
+      mem[adr] = 0U; /* Clear cell's flags */
+     }
+     if (!drop){
+      col = 0x80U | frame_memf[adr];
+      frame_pixbox(pix, ptc, 36U + (k * 17U) + j, 248U + i, col, pal);
+     }
+    }
+   }
   }
-  for (row = 252U; row < 271U; row ++){ /* VSync pulses */
-   frame_synrep(pix, ptc,   0U, row + 1U, finfo->pulse[row].rise, pal);
-   frame_synrep(pix, ptc, 315U, row + 1U, finfo->pulse[row].fall, pal);
-  }
- }
 
- /* Produce memory access info blocks */
+  /* Produce I/O access info blocks */
 
- mem = cu_avr_get_meminfo();
+  mem = cu_avr_get_ioinfo();
 
- for (k = 0U; k < 16U; k ++){
   for (j = 0U; j < 16U; j ++){
    for (i = 0U; i < 16U; i ++){
-    adr = (((k + 1U) & 0xFU) << 8) |
-          (j << 4) |
+    adr = (j << 4) |
           (i     );
     if ((frame_ctr & 0x7U) == 0U){
-     if ((frame_memf[adr] & 0x07U) != 0U){ frame_memf[adr] -= 0x01U; }
-     if ((frame_memf[adr] & 0x38U) != 0U){ frame_memf[adr] -= 0x08U; }
-     if ((mem[adr]) & CU_MEM_R){ frame_memf[adr] |= 0x38U; }
-     if ((mem[adr]) & CU_MEM_W){ frame_memf[adr] |= 0x07U; }
+     if ((frame_iof[adr] & 0x07U) != 0U){ frame_iof[adr] -= 0x01U; }
+     if ((frame_iof[adr] & 0x38U) != 0U){ frame_iof[adr] -= 0x08U; }
+     if ((mem[adr]) & CU_MEM_R){ frame_iof[adr] |= 0x38U; }
+     if ((mem[adr]) & CU_MEM_W){ frame_iof[adr] |= 0x07U; }
      mem[adr] = 0U; /* Clear cell's flags */
     }
     if (!drop){
-     col = 0x80U | frame_memf[adr];
-     frame_pixbox(pix, ptc, 36U + (k * 17U) + j, 248U + i, col, pal);
+     col = 0x80U | frame_iof[adr];
+     frame_pixbox(pix, ptc, 12U + j, 248U + i, col, pal);
     }
    }
   }
- }
 
- /* Produce I/O access info blocks */
-
- mem = cu_avr_get_ioinfo();
-
- for (j = 0U; j < 16U; j ++){
-  for (i = 0U; i < 16U; i ++){
-   adr = (j << 4) |
-         (i     );
-   if ((frame_ctr & 0x7U) == 0U){
-    if ((frame_iof[adr] & 0x07U) != 0U){ frame_iof[adr] -= 0x01U; }
-    if ((frame_iof[adr] & 0x38U) != 0U){ frame_iof[adr] -= 0x08U; }
-    if ((mem[adr]) & CU_MEM_R){ frame_iof[adr] |= 0x38U; }
-    if ((mem[adr]) & CU_MEM_W){ frame_iof[adr] |= 0x07U; }
-    mem[adr] = 0U; /* Clear cell's flags */
-   }
-   if (!drop){
-    col = 0x80U | frame_iof[adr];
-    frame_pixbox(pix, ptc, 12U + j, 248U + i, col, pal);
-   }
-  }
  }
 
  frame_ctr ++;
 
  /* Add text GUI elements */
 
- textgui_draw();
+ textgui_draw(drop || gonly);
 
  return ret;
 }
