@@ -45,7 +45,7 @@ Currently only Player 1's SNES controller is added, as follows:
 The emulator itself can be controlled with the following keys:
 
 - ESC: Exit
-- F2: Toggle "small" display (faster, but more blurry if resized)
+- F2: Toggle low quality display (faster, but blurry and ugly)
 - F3: Toggle debug informations (slightly faster with them off)
 - F4: Toggle frame rate limiter
 - F5: Toggle video capture (only if compiled in)
@@ -104,6 +104,43 @@ The SD write feature is sandboxed within the directory of the game. It doesn't
 emulate subdirectories. You may only override existing file contents, expand
 files or create new ones, it should be capable to track these operations if
 you write the FAT first.
+
+
+
+
+Emscripten notes
+------------------------------------------------------------------------------
+
+
+After setting up Emscripten so it is capable to compile examples, at least on
+Linux compiling the emulator should require the following steps:
+
+- In "Make_config.mk", adjust the target (TSYS) to "emscripten".
+- Copy a game renamed as "gamefile.uze" in the source tree.
+- Run "Make".
+
+The game can also be a .hex file (but needs to be renamed to "gamefile.uze").
+This game will be added to the build's virtual filesystem.
+
+A "cuzebox_minimal.html" file is also provided to demonstrate the Emscripten
+build, which contains the bare necessities to start the compiled emulator in a
+browser.
+
+To get the minimal size for your build, you can set the following flags in
+"Make_config.mk":
+
+- FLAG_NOCONSOLE: This removes all console output. Normally console output
+  shouldn't be really necessary (but test whether the game can be loaded all
+  right first with a native compile or an Emscripten build with console
+  output on).
+
+- FLAG_SELFCONT: Integrates the game within the emulator. This removes the
+  Emscripten virtual filesystem saving more than 100 KBytes, but it is only
+  capable to work with games which don't need the SD card.
+
+A compiled game needs the "cuzebox.js", the "cuzebox.html.mem" and either the
+"cuzebox.html" or "cuzebox_minimal.html" files to function. It also needs
+"cuzebox.data" if it was built with FLAG_SELFCONT set zero (default).
 
 
 

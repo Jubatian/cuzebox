@@ -38,14 +38,27 @@
 #define WND_W    640U
 #define WND_H    560U
 /* Window dimensions, single scan */
-#define WNDS_W   320U
-#define WNDS_H   280U
+#define WNDS_W   640U
+#define WNDS_H   560U
 /* Window dimensions, double scan, game only */
 #define WNDG_W   620U
 #define WNDG_H   456U
 /* Window dimensions, single scan, game only */
-#define WNDSG_W  310U
-#define WNDSG_H  228U
+#define WNDSG_W  620U
+#define WNDSG_H  456U
+
+/* Texture dimensions, double scan */
+#define TEX_W    640U
+#define TEX_H    560U
+/* Texture dimensions, single scan */
+#define TEXS_W   320U
+#define TEXS_H   280U
+/* Texture dimensions, double scan, game only */
+#define TEXG_W   620U
+#define TEXG_H   456U
+/* Texture dimensions, single scan, game only */
+#define TEXSG_W  310U
+#define TEXSG_H  228U
 
 /* Target pixel buffer offsets for game only */
 #define TGOG_X   5U
@@ -160,6 +173,8 @@ boole guicore_init(auint flags, const char* title)
  auint b;
  auint wndw;
  auint wndh;
+ auint texw;
+ auint texh;
 #ifndef USE_SDL1
  auint res;
  auint renflags;
@@ -185,13 +200,17 @@ boole guicore_init(auint flags, const char* title)
 
  switch (flags & (GUICORE_SMALL | GUICORE_GAMEONLY)){
   case 0U:
-   wndw = WND_W;   wndh = WND_H;   break;
+   wndw = WND_W;   wndh = WND_H;
+   texw = TEX_W;   texh = TEX_H;   break;
   case GUICORE_SMALL:
-   wndw = WNDS_W;  wndh = WNDS_H;  break;
+   wndw = WNDS_W;  wndh = WNDS_H;
+   texw = TEXS_W;  texh = TEXS_H;  break;
   case GUICORE_GAMEONLY:
-   wndw = WNDG_W;  wndh = WNDG_H;  break;
+   wndw = WNDG_W;  wndh = WNDG_H;
+   texw = TEXG_W;  texh = TEXG_H;  break;
   default:
-   wndw = WNDSG_W; wndh = WNDSG_H; break;
+   wndw = WNDSG_W; wndh = WNDSG_H;
+   texw = TEXSG_W; texh = TEXSG_H; break;
  }
 
  /* Check whether initializing or doing a partial reinit. */
@@ -237,11 +256,23 @@ boole guicore_init(auint flags, const char* title)
 
 #ifdef USE_SDL1
 
- guicore_surface = SDL_SetVideoMode(wndw, wndh, 32U, SDL_HWSURFACE);
+ guicore_surface = SDL_SetVideoMode(texw, texh, 32U, SDL_HWSURFACE); /* SDL1 doesn't support scaling */
  if (guicore_surface == NULL){
   print_error(guicore_sdlerr, SDL_GetError());
   goto fail_qt;
  }
+
+#ifdef __EMSCRIPTEN__
+
+  /* Scale output so the game wouldn't have to be played on a tiny stamp */
+
+  EM_ASM_({
+    var canvas = Module['canvas'];
+    canvas.style.setProperty("width", $0 + "px", "important");
+    canvas.style.setProperty("height", $1 + "px", "important");
+  }, wndw, wndh);
+
+#endif
 
  /* For some reason in Emscripten the shifts from the format are missing. Work
  ** it around by determining them using the masks */
@@ -291,7 +322,7 @@ boole guicore_init(auint flags, const char* title)
  }
 
  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
- if (SDL_RenderSetLogicalSize(guicore_renderer, wndw, wndh) != 0U){
+ if (SDL_RenderSetLogicalSize(guicore_renderer, texw, texh) != 0U){
   print_error(guicore_sdlerr, SDL_GetError());
   goto fail_ren;
  }
@@ -363,8 +394,8 @@ boole guicore_init(auint flags, const char* title)
      guicore_renderer,
      res,
      SDL_TEXTUREACCESS_STREAMING,
-     wndw,
-     wndh);
+     texw,
+     texh);
  if (guicore_texture == NULL){
   print_error(guicore_sdlerr, SDL_GetError());
   goto fail_ren;
@@ -510,21 +541,21 @@ void guicore_update(boole drop)
 {
 #ifdef USE_SDL1
 
- auint   wndw;
- auint   wndh;
+ auint   texw;
+ auint   texh;
  auint   offx;
  auint   offy;
 
  if (drop){ return; }
 
  if ((guicore_flags & GUICORE_GAMEONLY) != 0U){
-  wndw = WNDSG_W;
-  wndh = WNDSG_H;
+  texw = TEXSG_W;
+  texh = TEXSG_H;
   offx = TGOG_X;
   offy = TGOG_Y;
  }else{
-  wndw = WNDS_W;
-  wndh = WNDS_H;
+  texw = TEXS_W;
+  texh = TEXS_H;
   offx = 0U;
   offy = 0U;
  }
@@ -534,12 +565,12 @@ void guicore_update(boole drop)
    guicore_render_1x(
        guicore_surface->pixels, (guicore_surface->pitch) >> 2,
        offx, offy,
-       wndw, wndh);
+       texw, texh);
   }else{
    guicore_render_2x(
        guicore_surface->pixels, (guicore_surface->pitch) >> 2,
        offx, offy,
-       wndw, wndh);
+       texw, texh);
   }
   SDL_UnlockSurface(guicore_surface);
  }
@@ -547,8 +578,8 @@ void guicore_update(boole drop)
 
 #else
 
- auint   wndw;
- auint   wndh;
+ auint   texw;
+ auint   texh;
  auint   offx;
  auint   offy;
  void*   pixels;
@@ -557,13 +588,13 @@ void guicore_update(boole drop)
  if (drop){ return; }
 
  if ((guicore_flags & GUICORE_GAMEONLY) != 0U){
-  wndw = WNDSG_W;
-  wndh = WNDSG_H;
+  texw = TEXSG_W;
+  texh = TEXSG_H;
   offx = TGOG_X;
   offy = TGOG_Y;
  }else{
-  wndw = WNDS_W;
-  wndh = WNDS_H;
+  texw = TEXS_W;
+  texh = TEXS_H;
   offx = 0U;
   offy = 0U;
  }
@@ -573,12 +604,12 @@ void guicore_update(boole drop)
    guicore_render_1x(
        pixels, pitch >> 2,
        offx, offy,
-       wndw, wndh);
+       texw, texh);
   }else{
    guicore_render_2x(
        pixels, pitch >> 2,
        offx, offy,
-       wndw, wndh);
+       texw, texh);
   }
   SDL_UnlockTexture(guicore_texture);
  }

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>CUzeBox example page</title>
+    <style>
+      body {
+        font-family: arial;
+        margin: 0;
+        padding: none;
+        background-color: #000000;
+      }
+
+      div.emscripten{
+        margin-top: 20px;
+      }
+
+      canvas.emscripten {
+        border: 0px none;
+        padding: 0px;
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+      }
+
+      div.controls {
+        color: #888888;
+        width: 640px;
+        vertical-align: center;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: 20px;
+      }
+
+      div.button {
+        float: right;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="emscripten">
+      <canvas class="emscripten" id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="button"><input type="button" value="Fullscreen" onclick="Module.requestFullScreen(true, false)"></div>
+      <div>
+        <h3>Controls:</h3>
+        <ul>
+          <li>Arrow keys: SNES controller DPAD</li>
+          <li>Q: SNES controller 'Y'</li>
+          <li>W: SNES controller 'X'</li>
+          <li>A: SNES controller 'B'</li>
+          <li>S: SNES controller 'A'</li>
+          <li>Enter: SNES controller 'Start'</li>
+          <li>Space: SNES controller 'Select'</li>
+          <li>Right shift: SNES controller Right shoulder</li>
+          <li>Left shift: SNES controller Left shoulder</li>
+          <li>F2: Toggle low quality (helps if emulator runs too slow)</li>
+          <li>F3: Toggle emulator debug information (slower with them on)</li>
+          <li>F7: Toggle flicker reduction (slower with it on)</li>
+          <li>F8: Toggle UZEM style keymapping (A, S, Y, X instead of Q, W, A, S)</li>
+        </ul>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+
+      var Module = {
+        canvas: (function() {
+          return document.getElementById('canvas');
+        })(),
+      };
+
+      (function() {
+        var memoryInitializer = 'cuzebox.html.mem';
+        var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
+        xhr.open('GET', memoryInitializer, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.send(null);
+      })();
+
+      var script = document.createElement('script');
+      script.src = "cuzebox.js";
+      document.body.appendChild(script);
+
+    </script>
+
+  </body>
+</html>
