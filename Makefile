@@ -69,7 +69,11 @@ OBJECTS += $(OBD)/filesmin.o
 endif
 ifeq ($(TSYS),emscripten)
 ifeq ($(FLAG_SELFCONT), 0)
+ifeq ($(FLAG_NOGAMEFILE), 0)
 ROMFILE  = gamefile.uze
+else
+ROMFILE  =
+endif
 else
 ROMFILE  =
 endif

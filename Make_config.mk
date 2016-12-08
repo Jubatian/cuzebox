@@ -106,3 +106,14 @@ FLAG_SELFCONT=0
 # application size (but good bye, debug info!).
 #
 FLAG_NOCONSOLE=0
+#
+#
+# For an Emscripten build, disable linking with a game (also keep
+# FLAG_SELFCONT clear for this to work). If you do this, you will need to
+# supply the game and any further files externally, injecting it into the
+# Emscripten FS before starting the emulator. Note that the default html
+# output doesn't include displaying the contents of the error channel, so you
+# won't see any error! (Open the Web console, and check for logs / errors
+# there to check the error output of the gamefile loading functions)
+#
+FLAG_NOGAMEFILE=0

@@ -80,7 +80,9 @@ OUT=cuzebox.html
 CFLAGS+= -DTARGET_EMSCRIPTEN -DUSE_SDL1 -s USE_SDL=1 -s NO_EXIT_RUNTIME=1 -s NO_DYNAMIC_EXECUTION=1
 ENABLE_VCAP=0
 ifeq ($(FLAG_SELFCONT),0)
+ifeq ($(FLAG_NOGAMEFILE),0)
 LINKB= --preload-file gamefile.uze
+endif
 endif
 endif
 #
