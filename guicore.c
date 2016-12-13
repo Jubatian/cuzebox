@@ -83,7 +83,7 @@ static SDL_Texture*  guicore_texture;
 #endif
 
 /* Target pixel buffer */
-static uint32        guicore_pixels[640U * 560U];
+static uint32        guicore_pixels[640U * 280U];
 
 /* Uzebox palette */
 static uint32        guicore_palette[256];
@@ -479,9 +479,7 @@ auint guicore_getflags(void)
 
 
 /*
-** Retrieves 640 x 560 GUI surface's pixel buffer. A matching
-** guicore_relpixbuf() must be made after rendering. It may return NULL if it
-** is not possible to lock the pixel buffer for access.
+** Retrieves 640 x 280 GUI surface's pixel buffer.
 */
 uint32* guicore_getpixbuf(void)
 {
@@ -498,15 +496,6 @@ void  guicore_getpixfmt(guicore_pixfmt_t* pixfmt)
  pixfmt->rsh = guicore_pixfmt.rsh;
  pixfmt->gsh = guicore_pixfmt.gsh;
  pixfmt->bsh = guicore_pixfmt.bsh;
-}
-
-
-
-/*
-** Releases the pixel buffer.
-*/
-void  guicore_relpixbuf(void)
-{
 }
 
 

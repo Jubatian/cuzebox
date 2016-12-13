@@ -96,7 +96,7 @@ auint guicore_getflags(void);
 
 
 /*
-** Retrieves 640 x 270 GUI surface's pixel buffer.
+** Retrieves 640 x 280 GUI surface's pixel buffer.
 */
 uint32* guicore_getpixbuf(void);
 
