@@ -33,13 +33,14 @@
 
 
 /* UzeRom header magic value */
-static const uint8* cu_magic = (const uint8*)("UZEBOX");
+#define CU_MAGIC_LEN 6U
+static const uint8 cu_magic[] = {'U', 'Z', 'E', 'B', 'O', 'X'};
 
 
 /* String constants */
-static const char* cu_id  = "UzeRom parser: ";
-static const char* cu_err = "Error: ";
-static const char* cu_war = "Warning: ";
+static const char cu_id[]  = "UzeRom parser: ";
+static const char cu_err[] = "Error: ";
+static const char cu_war[] = "Warning: ";
 
 
 
@@ -69,7 +70,7 @@ boole cu_ufile_load(char const* fname, uint8* cmem, cu_ufile_header_t* head)
   goto ex_file;
  }
 
- for (i = 0U; i < 6U; i++){
+ for (i = 0U; i < CU_MAGIC_LEN; i++){
   if (buf[i] != cu_magic[i]){
    print_error("%s%s%s is not a UzeRom file.\n", cu_id, cu_err, fname);
    goto ex_file;

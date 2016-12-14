@@ -95,7 +95,7 @@ static uint32        guicore_amask;
 static auint         guicore_flags;
 
 /* String constant for SDL error output */
-static const char*   guicore_sdlerr = "SDL Error: %s\n";
+static const char    guicore_sdlerr[] = "SDL Error: %s\n";
 
 /* Pixel format */
 static guicore_pixfmt_t guicore_pixfmt;

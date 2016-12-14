@@ -33,7 +33,7 @@
 
 
 /* EEPROM dump file */
-static const char* eepdump_file = "eeprom.bin";
+static const char eepdump_file[] = "eeprom.bin";
 
 
 

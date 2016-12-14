@@ -33,9 +33,9 @@
 
 
 /* String constants */
-static const char* cu_id  = "Hex parser: ";
-static const char* cu_err = "Error: ";
-static const char* cu_war = "Warning: ";
+static const char cu_id[]  = "Hex parser: ";
+static const char cu_err[] = "Error: ";
+static const char cu_war[] = "Warning: ";
 
 
 
