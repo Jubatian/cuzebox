@@ -134,6 +134,9 @@ endif
 ifneq ($(FLAG_NOCONSOLE),0)
 CFLAGS+= -DFLAG_NOCONSOLE=1
 endif
+ifneq ($(FLAG_NATIVE),0)
+CFLAGS+= -DFLAG_NATIVE=1
+endif
 
 OBD=_obj_
 

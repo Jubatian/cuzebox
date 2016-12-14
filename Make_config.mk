@@ -117,3 +117,10 @@ FLAG_NOCONSOLE=0
 # there to check the error output of the gamefile loading functions)
 #
 FLAG_NOGAMEFILE=0
+#
+#
+# For an Emscripten build, request compiling with the AVR CPU opcode emulation
+# intended for native use. This is likely slower for this target, but results
+# in ~25Kb smaller output.
+#
+FLAG_NATIVE=0
