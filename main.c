@@ -212,13 +212,13 @@ static void main_loop(void)
 
  if (drift >= 0x80000000U){   /* Possibly too slow */
   if ((drift + 8U) >= 0x80000000U){   /* Transient problem (late by at least 1 frame) */
-   if ((drift + 75U) >= 0x80000000U){ /* Permanent problem (late by several frames) */
+   if ((drift + 58U) >= 0x80000000U){ /* Permanent problem (late by several frames) */
     if ((drift + 225U) >= 0x80000000U){
      drift = (auint)(0U) - 225U;      /* Limit (throw away memory) */
     }
-    if (fdtmp < 30U){ fdtmp = 30U; }  /* Semi-permanently limit frame rate */
+    if (fdtmp < 160U){ fdtmp = 160U; }   /* Semi-permanently limit frame rate */
    }
-   if (fdtmp < 60U){ fdtmp ++; }      /* Push frame drop request */
+   if (fdtmp < 240U){ fdtmp ++; }     /* Push frame drop request */
   }
  }else{                       /* Possibly too fast */
   if (fdtmp != 0U){ fdtmp --; }  /* Eat away frame drop request */
