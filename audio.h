@@ -56,7 +56,8 @@ void  audio_quit(void);
 
 
 /*
-** Send a frame (unsigned 8 bit samples) to the audio device.
+** Send a frame (unsigned 8 bit samples) to the audio device. If NULL is
+** passed, then silence will be added.
 */
 void  audio_sendframe(uint8 const* samples, auint len);
 

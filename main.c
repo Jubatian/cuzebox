@@ -100,6 +100,12 @@ static const char* main_game = "gamefile.uze";
 static boole main_isvcap = FALSE;
 #endif
 
+/* Whether the emulator is paused */
+static boole main_ispause = FALSE;
+
+/* Whether a single frame advance was called (1 frame unpause) */
+static boole main_isadvfr = FALSE;
+
 
 
 /*
@@ -355,6 +361,14 @@ static void main_loop(void)
      main_kbuzem = !main_kbuzem;
      break;
 
+    case SDLK_F9:
+     main_ispause = !main_ispause;
+     break;
+
+    case SDLK_F10:
+     main_isadvfr = TRUE;
+     break;
+
     default:
      break;
    }
@@ -365,23 +379,37 @@ static void main_loop(void)
  /* Go on with the frame's logic. Does it here so the SDL_GetTicks() on the
  ** top of the loop is as close to the render's end as reasonably possible. */
 
-#ifdef ENABLE_VCAP
-
- rows = frame_run(fdrop && (!main_isvcap), main_fmerge);
- audio_sendframe(frame_getaudio(), rows);
- guicore_update(fdrop);
-
- if (main_isvcap){
-  avconv_push(frame_getaudio(), rows);
+ if (main_isadvfr){
+  main_ispause = FALSE;
  }
 
+ if (!main_ispause){
+
+#ifdef ENABLE_VCAP
+  rows = frame_run(fdrop && (!main_isvcap), main_fmerge);
+  audio_sendframe(frame_getaudio(), rows);
+  guicore_update(fdrop);
+  if (main_isvcap){
+   avconv_push(frame_getaudio(), rows);
+  }
 #else
-
- rows = frame_run(fdrop, main_fmerge);
- audio_sendframe(frame_getaudio(), rows);
- guicore_update(fdrop);
-
+  rows = frame_run(fdrop, main_fmerge);
+  audio_sendframe(frame_getaudio(), rows);
+  guicore_update(fdrop);
 #endif
+
+ }else{
+
+  audio_sendframe(NULL, 262U);
+  guicore_update(FALSE);
+
+ }
+
+ if (main_isadvfr){
+  main_isadvfr = FALSE;
+  main_ispause = TRUE;
+ }
+
 }
 
 

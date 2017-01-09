@@ -265,7 +265,8 @@ void  audio_quit(void)
 
 
 /*
-** Send a frame (unsigned 8 bit samples) to the audio device.
+** Send a frame (unsigned 8 bit samples) to the audio device. If NULL is
+** passed, then silence will be added.
 */
 void  audio_sendframe(uint8 const* samples, auint len)
 {
@@ -275,9 +276,16 @@ void  audio_sendframe(uint8 const* samples, auint len)
  if ( (brem != 0U) &&
       (brem < len) ){ return; } /* Buffer full */
 
- for (i = 0U; i < len; i++){
-  audio_buf[audio_buf_w] = samples[i];
-  audio_buf_w = (audio_buf_w + 1U) & (AUDIO_BUF_SIZE - 1U);
+ if (samples != NULL){
+  for (i = 0U; i < len; i++){
+   audio_buf[audio_buf_w] = samples[i];
+   audio_buf_w = (audio_buf_w + 1U) & (AUDIO_BUF_SIZE - 1U);
+  }
+ }else{
+  for (i = 0U; i < len; i++){
+   audio_buf[audio_buf_w] = 0x80U;
+   audio_buf_w = (audio_buf_w + 1U) & (AUDIO_BUF_SIZE - 1U);
+  }
  }
 }
 

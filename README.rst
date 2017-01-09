@@ -51,6 +51,8 @@ The emulator itself can be controlled with the following keys:
 - F5: Toggle video capture (only if compiled in)
 - F7: Toggle frame merging (slower, eliminates flicker in some games)
 - F8: Toggle keymap between SNES and UZEM (Default: SNES)
+- F9: Pause / Unpause
+- F10: Advance a single frame
 - F11: Toggle full screen
 
 The UZEM keymap maps the buttons of the SNES controller according to the Uzem
