@@ -199,6 +199,10 @@ boole           eeprom_changed;
  }while(0)
 
 
+/* Vectors base when IVSEL is 1 (MCUCR.1; Boot loader base) */
+#define VBASE_BOOT     0x7800U
+
+
 /* Various vectors */
 
 /* Reset */
@@ -415,6 +419,8 @@ static void cu_avr_interrupt(void)
 */
 static void cu_avr_itcheck(void)
 {
+ auint vbase;
+
  /* Global interrupt enable? */
 
  if ((cpu_state.iors[CU_IO_SREG] & SREG_IM) == 0U){
@@ -424,39 +430,41 @@ static void cu_avr_itcheck(void)
 
  /* Interrupts are enabled, so check them */
 
+ vbase = ((cpu_state.iors[CU_IO_MCUCR] >> 1) & 1U) * VBASE_BOOT;
+
  if       ( (cpu_state.iors[CU_IO_SPCR] &
              cpu_state.iors[CU_IO_SPSR] & 0x80U)   !=    0U ){ /* SPI */
 
   cpu_state.iors[CU_IO_SPSR] ^= 0x80U;
   event_it_enter = TRUE;
-  event_it_vect  = VECT_SPISTC;
+  event_it_vect  = vbase + VECT_SPISTC;
 
  }else if ( (cpu_state.iors[CU_IO_WDTCSR] & 0xC0U) == 0xC0U ){ /* Watchdog */
 
   cpu_state.iors[CU_IO_WDTCSR] ^= 0x80U; /* Assume interrupt mode (only clearing the WDIF flag) */
   event_it_enter = TRUE;
-  event_it_vect  = VECT_WDT;
+  event_it_vect  = vbase + VECT_WDT;
 
  }else if ( (cpu_state.iors[CU_IO_TIFR1] &
              cpu_state.iors[CU_IO_TIMSK1] & 0x02U) !=    0U ){ /* Timer 1 Comparator A */
 
   cpu_state.iors[CU_IO_TIFR1] ^= 0x02U;
   event_it_enter = TRUE;
-  event_it_vect  = VECT_T1COMPA;
+  event_it_vect  = vbase + VECT_T1COMPA;
 
  }else if ( (cpu_state.iors[CU_IO_TIFR1] &
              cpu_state.iors[CU_IO_TIMSK1] & 0x04U) !=    0U ){ /* Timer 1 Comparator B */
 
   cpu_state.iors[CU_IO_TIFR1] ^= 0x04U;
   event_it_enter = TRUE;
-  event_it_vect  = VECT_T1COMPB;
+  event_it_vect  = vbase + VECT_T1COMPB;
 
  }else if ( (cpu_state.iors[CU_IO_TIFR1] &
              cpu_state.iors[CU_IO_TIMSK1] & 0x01U) !=    0U ){ /* Timer 1 Overflow */
 
   cpu_state.iors[CU_IO_TIFR1] ^= 0x01U;
   event_it_enter = TRUE;
-  event_it_vect  = VECT_T1OVF;
+  event_it_vect  = vbase + VECT_T1OVF;
 
  }else{ /* No interrupts are pending */
 
@@ -870,7 +878,14 @@ void  cu_avr_reset(void)
 
  cpu_state.latch = 0U;
 
- cpu_state.pc = VECT_RESET;   /* Once boot loaders are added, this have to be pointed there */
+ /* Check whether something is loaded. Normally the AVR is fused to use the
+ ** boot loader, so if anything is present there, use that. If there is no
+ ** boot loader (only an application is loaded), boot that instead. */
+
+ if ( (cpu_state.crom[(VBASE_BOOT * 2U) + 0U] != 0U) ||
+      (cpu_state.crom[(VBASE_BOOT * 2U) + 1U] != 0U) ){ cpu_state.iors[CU_IO_MCUCR] |= 2U; }
+
+ cpu_state.pc = (((cpu_state.iors[CU_IO_MCUCR] >> 1) & 1U) * VBASE_BOOT) + VECT_RESET;
 
  cpu_state.cycle    = 0U;
  video_pulsectr     = 0U;
