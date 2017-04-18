@@ -218,7 +218,8 @@ log_tail:
      }else{                                 /* Page write */
       for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res] &= cpu_state.sbuf[tmp]; }
      }
-     cu_avr_crom_update(res, 256U);
+     if (res != 0U){ cu_avr_crom_update(res - 2U, 258U); } /* Fix 2 word instructions crossing page boundary */
+     else          { cu_avr_crom_update(res,      256U); }
      cpu_state.spm_prge = TRUE;
      cpu_state.iors[CU_IO_SPMCSR] |= 0x40U; /* RRW section busy */
      cpu_state.spm_end  = WRAP32(SPM_PROG_TIM + cpu_state.cycle);
