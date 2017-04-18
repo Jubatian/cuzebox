@@ -84,16 +84,15 @@ Currently the following features are implemented:
 - Sound and video output (frame rate synchronized to host if possible).
 - SNES controllers (only Player 1's controller is exposed).
 - EEPROM including saving its contents alongside the emulated game.
+- SPM instruction and related elements necessary for bootloader emulation.
 - SD Card read and write (writing is untested).
 - SPI RAM.
 
 Currently lacking but planned:
 
-- SPM instruction (allowing bootloader emulation).
 - Emulator state saves (snapshots).
 - Mouse and keyboard controllers.
 - Networking features as provided by the ESP8266 over the UART.
-- More elaborate GUI.
 
 Notes:
 
@@ -106,6 +105,13 @@ The SD write feature is sandboxed within the directory of the game. It doesn't
 emulate subdirectories. You may only override existing file contents, expand
 files or create new ones, it should be capable to track these operations if
 you write the FAT first.
+
+A bootloader can be started simply by passing the bootloader's .hex file as
+parameter to the emulator. The virtual SD card is composed from the files
+existing in the same directory. Note that the emulator can not remember what
+the bootloader wrote last time into the flash (so you can not start the last
+selected game with the normal Uzebox bootloader as it recognizes the game by a
+CRC written in EEPROM, not by flash content).
 
 
 
