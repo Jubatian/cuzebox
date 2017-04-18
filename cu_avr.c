@@ -1132,7 +1132,7 @@ void  cu_avr_crom_update(auint base, auint len)
  if (wbase > 0x7FFFU){ wbase = 0x7FFFU; }
  if ((wbase + wlen) > 0x8000U){ wlen = 0x8000U - wbase; }
 
- for (i = wbase; i < wlen; i++){
+ for (i = wbase; i < (wbase + wlen); i++){
   cpu_code[i] = cu_avrc_compile(
       ((auint)(cpu_state.crom[((i << 1) + 0U) & 0xFFFFU])     ) |
       ((auint)(cpu_state.crom[((i << 1) + 1U) & 0xFFFFU]) << 8),
