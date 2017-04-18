@@ -362,39 +362,20 @@ static void cu_avr_hwexec(void)
 
   }
 
- }else if (cpu_state.eep_prge){
+ }else if ((cpu_state.iors[CU_IO_EECR] & 0x04U) != 0U){
 
   if (cpu_state.cycle == cpu_state.eep_end){
-
-   cpu_state.eep_prge = FALSE;
    cpu_state.iors[CU_IO_EECR] &= ~0x04U; /* Clear EEMPE (disable programming) */
-
   }else{
-
    t0 = WRAP32(cpu_state.eep_end - cpu_state.cycle);
    if (nextev > t0){ nextev = t0; }
-
   }
 
  }else{}
 
  /* SPM */
 
- if (cpu_state.spm_inse){
-
-  if (cpu_state.cycle == cpu_state.spm_end){
-
-   cpu_state.spm_inse = FALSE; /* Cancel SPM instruction */
-   cpu_state.iors[CU_IO_SPMCSR] &= ~0x01U;
-
-  }else{
-
-   t0 = WRAP32(cpu_state.spm_end - cpu_state.cycle);
-   if (nextev > t0){ nextev = t0; }
-
-  }
-
- }else if (cpu_state.spm_prge){
+ if (cpu_state.spm_prge){
 
   if (cpu_state.cycle == cpu_state.spm_end){
 
@@ -406,6 +387,15 @@ static void cu_avr_hwexec(void)
    t0 = WRAP32(cpu_state.spm_end - cpu_state.cycle);
    if (nextev > t0){ nextev = t0; }
 
+  }
+
+ }else if ((cpu_state.iors[CU_IO_SPMCSR] & 0x01U) != 0U){
+
+  if (cpu_state.cycle == cpu_state.spm_end){
+   cpu_state.iors[CU_IO_SPMCSR] &= ~0x01U; /* Cancel SPM instruction */
+  }else{
+   t0 = WRAP32(cpu_state.spm_end - cpu_state.cycle);
+   if (nextev > t0){ nextev = t0; }
   }
 
  }else{}
@@ -751,7 +741,6 @@ static void  cu_avr_write_io(auint port, auint val)
    if ((pval & 0x04U) == 0U){
     cval &= ~0x02U;   /* Without EEMPE, programming (EEPE) can not start */
    }else{
-    cpu_state.eep_prge = TRUE;
     cpu_state.eep_end  = WRAP32(cpu_state.cycle + 4U); /* Open EEPE window (4 cycles) */
     if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
          (WRAP32(cpu_state.eep_end - cpu_state.cycle)) ){
@@ -816,8 +805,9 @@ static void  cu_avr_write_io(auint port, auint val)
 
   case CU_IO_SPMCSR:  /* Store program memory control & status */
 
-   if ( ((cval & 0x01U) != 0U) &&
-        (!cpu_state.spm_inse) &&
+   cval = (cval & (~0x40U)) | (pval & 0x40U); /* RRWSB bit can not be written */
+   if ( ((pval & 0x01U) == 0U) &&
+        ((cval & 0x01U) != 0U) && /* SPM enable just turned on */
         (!cpu_state.spm_prge) ){
     t0 = cval & 0x1EU;    /* SPM mode select bits */
     if ( (t0 == 0x00U) || /* Page load (filling temp buffer) */
@@ -826,8 +816,11 @@ static void  cu_avr_write_io(auint port, auint val)
          (t0 == 0x08U) || /* Boot lock bit set */
          (t0 == 0x10U) ){ /* RWW section read enable */
      cpu_state.spm_mode = t0;
-     cpu_state.spm_end  = WRAP32(4U + cpu_state.cycle);
-     cpu_state.spm_inse = TRUE;
+     cpu_state.spm_end  = WRAP32(cpu_state.cycle + 4U);
+     if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
+          (WRAP32(cpu_state.spm_end - cpu_state.cycle)) ){
+      cycle_next_event = cpu_state.spm_end; /* Set SPM HW processing target */
+     }
     }
    }
    break;
@@ -954,8 +947,8 @@ void  cu_avr_reset(void)
  event_it_enter     = FALSE;
  cpu_state.spi_tran = FALSE;
  cpu_state.wd_end   = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
- cpu_state.eep_prge = FALSE;
  cpu_state.eep_wrte = FALSE;
+ cpu_state.spm_prge = FALSE;
 
  if (!pflags_done){
   cu_avrfg_fill(&cpu_pflags[0]);

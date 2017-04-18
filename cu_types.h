@@ -113,10 +113,8 @@ typedef struct{
  auint spi_tx;        /* SPI transmit data waiting to be clocked out of the AVR */
  auint wd_seed;       /* Watchdog seed to provide a deterministic WD timeout */
  auint wd_end;        /* Watchdog timeout end cycle */
- boole eep_prge;      /* EEPROM Programming enabled, timeout active */
- boole eep_wrte;      /* EEPROM Write enabled (higher priority than eep_prge), timeout active */
+ boole eep_wrte;      /* EEPROM Write enabled, timeout active */
  auint eep_end;       /* EEPROM activity end cycle */
- boole spm_inse;      /* SPM instruction enabled */
  boole spm_prge;      /* SPM erasing or programming in progress */
  auint spm_mode;      /* SPM selected mode for the next SPM instruction */
  auint spm_end;       /* SPM enable end cycle */

@@ -208,19 +208,24 @@ log_tail:
    goto cy1_tail;
 
   case 0x17U: /* SPM */
-   if (cpu_state.spm_inse){ /* SPM instruction enabled */
-    if       (cpu_state.spm_mode == 0x02U){ /* Page erase */
+   if ( ((cpu_state.iors[CU_IO_SPMCSR] & 0x01U) != 0U) && /* SPM instruction enabled */
+        (!cpu_state.spm_prge) ){            /* Programming is not in progress */
+    if ( (cpu_state.spm_mode == 0x02U) ||   /* Page erase */
+         (cpu_state.spm_mode == 0x04U) ){   /* Page write */
      res = (auint)(cpu_state.iors[31]) << 8;
-     for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res]  = 0xFFU; }
+     if (cpu_state.spm_mode == 0x02U){      /* Page erase */
+      for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res]  = 0xFFU; }
+     }else{                                 /* Page write */
+      for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res] &= cpu_state.sbuf[tmp]; }
+     }
      cu_avr_crom_update(res, 256U);
      cpu_state.spm_prge = TRUE;
+     cpu_state.iors[CU_IO_SPMCSR] |= 0x40U; /* RRW section busy */
      cpu_state.spm_end  = WRAP32(SPM_PROG_TIM + cpu_state.cycle);
-    }else if (cpu_state.spm_mode == 0x04U){ /* Page write */
-     res = (auint)(cpu_state.iors[31]) << 8;
-     for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res] &= cpu_state.sbuf[tmp]; }
-     cu_avr_crom_update(res, 256U);
-     cpu_state.spm_prge = TRUE;
-     cpu_state.spm_end  = WRAP32(SPM_PROG_TIM + cpu_state.cycle);
+     if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
+          (WRAP32(cpu_state.spm_end - cpu_state.cycle)) ){
+      cycle_next_event = cpu_state.spm_end; /* Set SPM HW processing target */
+     }
     }else if (cpu_state.spm_mode == 0x08U){ /* Boot lock bit set (unimplemented) */
      cpu_state.iors[CU_IO_SPMCSR] &= 0xE0U;
     }else if (cpu_state.spm_mode == 0x10U){ /* RWW section read enable */
@@ -231,7 +236,6 @@ log_tail:
      cpu_state.iors[CU_IO_SPMCSR] &= 0xA0U;
     }
    }
-   cpu_state.spm_inse = FALSE;
    goto cy4_tail;
 
   case 0x18U: /* LPM */
