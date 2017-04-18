@@ -426,9 +426,31 @@ static void op_16(auint arg1, auint arg2) /* ANDI */
 
 static void op_17(auint arg1, auint arg2) /* SPM */
 {
- /* Complex stuff!! (See Chapter 24 in ATMega 644's doc) Will implement
- ** later */
- cy1_tail();
+ if (cpu_state.spm_inse){ /* SPM instruction enabled */
+  if       (cpu_state.spm_mode == 0x02U){ /* Page erase */
+   res = (auint)(cpu_state.iors[31]) << 8;
+   for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res]  = 0xFFU; }
+   cu_avr_crom_update(res, 256U);
+   cpu_state.spm_prge = TRUE;
+   cpu_state.spm_end  = WRAP32(SPM_PROG_TIM + cpu_state.cycle);
+  }else if (cpu_state.spm_mode == 0x04U){ /* Page write */
+   res = (auint)(cpu_state.iors[31]) << 8;
+   for (tmp = 0U; tmp < 256U; tmp ++){ cpu_state.crom[tmp + res] &= cpu_state.sbuf[tmp]; }
+   cu_avr_crom_update(res, 256U);
+   cpu_state.spm_prge = TRUE;
+   cpu_state.spm_end  = WRAP32(SPM_PROG_TIM + cpu_state.cycle);
+  }else if (cpu_state.spm_mode == 0x08U){ /* Boot lock bit set (unimplemented) */
+   cpu_state.iors[CU_IO_SPMCSR] &= 0xE0U;
+  }else if (cpu_state.spm_mode == 0x10U){ /* RWW section read enable */
+   cpu_state.iors[CU_IO_SPMCSR] &= 0xA0U;
+  }else{                                  /* Page loading (temp. buffer filling) */
+   cpu_state.sbuf[(cpu_state.iors[30] & 0xFEU) + 0U] = cpu_state.iors[0];
+   cpu_state.sbuf[(cpu_state.iors[30] & 0xFEU) + 1U] = cpu_state.iors[1];
+   cpu_state.iors[CU_IO_SPMCSR] &= 0xA0U;
+  }
+ }
+ cpu_state.spm_inse = FALSE;
+ cy4_tail();
 }
 
 static void op_18(auint arg1, auint arg2) /* LPM */

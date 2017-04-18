@@ -102,6 +102,7 @@ typedef struct{
  uint8 sram[4096];    /* Static RAM */
  uint8 eepr[2048];    /* EEPROM */
  uint8 iors[256];     /* IO Registers (including general purpose regs) */
+ uint8 sbuf[256];     /* SPM page buffer */
  auint pc;            /* Program Counter */
  auint latch;         /* 16 bit I/O register high latch */
  auint cycle;         /* Current cycle (32 bits wrapping, used for timing) */
@@ -115,6 +116,10 @@ typedef struct{
  boole eep_prge;      /* EEPROM Programming enabled, timeout active */
  boole eep_wrte;      /* EEPROM Write enabled (higher priority than eep_prge), timeout active */
  auint eep_end;       /* EEPROM activity end cycle */
+ boole spm_inse;      /* SPM instruction enabled */
+ boole spm_prge;      /* SPM erasing or programming in progress */
+ auint spm_mode;      /* SPM selected mode for the next SPM instruction */
+ auint spm_end;       /* SPM enable end cycle */
 }cu_state_cpu_t;
 
 

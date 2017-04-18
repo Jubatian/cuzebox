@@ -118,6 +118,9 @@ boole           eeprom_changed;
 /* EEPROM programming time base, assume ~1.75ms */
 #define EEPROM_EWR_TIM 50000U
 
+/* SPM programming time base, assuming ~4ms */
+#define SPM_PROG_TIM 100000U
+
 /* Maximal cycles in a video scanline (above which sync error is returned) */
 #define VIDEO_CY_MAX 1920U
 
@@ -369,6 +372,38 @@ static void cu_avr_hwexec(void)
   }else{
 
    t0 = WRAP32(cpu_state.eep_end - cpu_state.cycle);
+   if (nextev > t0){ nextev = t0; }
+
+  }
+
+ }else{}
+
+ /* SPM */
+
+ if (cpu_state.spm_inse){
+
+  if (cpu_state.cycle == cpu_state.spm_end){
+
+   cpu_state.spm_inse = FALSE; /* Cancel SPM instruction */
+   cpu_state.iors[CU_IO_SPMCSR] &= ~0x01U;
+
+  }else{
+
+   t0 = WRAP32(cpu_state.spm_end - cpu_state.cycle);
+   if (nextev > t0){ nextev = t0; }
+
+  }
+
+ }else if (cpu_state.spm_prge){
+
+  if (cpu_state.cycle == cpu_state.spm_end){
+
+   cpu_state.spm_prge = FALSE; /* Completed erasing / programming */
+   cpu_state.iors[CU_IO_SPMCSR] &= ~0x1FU;
+
+  }else{
+
+   t0 = WRAP32(cpu_state.spm_end - cpu_state.cycle);
    if (nextev > t0){ nextev = t0; }
 
   }
@@ -775,6 +810,24 @@ static void  cu_avr_write_io(auint port, auint val)
     if ( (WRAP32(cycle_next_event - cpu_state.cycle)) >
          (WRAP32(cpu_state.wd_end - cpu_state.cycle)) ){
      cycle_next_event = cpu_state.wd_end; /* Set Watchdog timeout HW processing target */
+    }
+   }
+   break;
+
+  case CU_IO_SPMCSR:  /* Store program memory control & status */
+
+   if ( ((cval & 0x01U) != 0U) &&
+        (!cpu_state.spm_inse) &&
+        (!cpu_state.spm_prge) ){
+    t0 = cval & 0x1EU;    /* SPM mode select bits */
+    if ( (t0 == 0x00U) || /* Page load (filling temp buffer) */
+         (t0 == 0x02U) || /* Page erase */
+         (t0 == 0x04U) || /* Page write */
+         (t0 == 0x08U) || /* Boot lock bit set */
+         (t0 == 0x10U) ){ /* RWW section read enable */
+     cpu_state.spm_mode = t0;
+     cpu_state.spm_end  = WRAP32(4U + cpu_state.cycle);
+     cpu_state.spm_inse = TRUE;
     }
    }
    break;
