@@ -91,21 +91,21 @@ void  cu_ctr_reset(void)
 auint cu_ctr_process(auint prev, auint curr)
 {
  auint chg  = prev ^ curr;
- auint fall = chg  & prev;
+ auint rise = chg  & curr;
  auint i;
  auint ret;
 
  ret = ((cu_ctr_blatch[0] & 1U)     ) |
        ((cu_ctr_blatch[1] & 1U) << 1);
 
- if (fall == 0x04U){  /* Latch command */
+ if (rise == 0x04U){  /* Latch command */
 
   for (i = 0U; i < 2U; i++){
    cu_ctr_blatch[i] = cu_ctr_mfilt(cu_ctr_buttons[i]);
   }
 
  }else{
-  if (fall == 0x08U){ /* Clock command */
+  if (rise == 0x08U){ /* Clock command */
 
    cu_ctr_blatch[0] >>= 1;
    cu_ctr_blatch[1] >>= 1;
