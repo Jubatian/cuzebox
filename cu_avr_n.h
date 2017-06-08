@@ -473,6 +473,13 @@ ret_tail:
         (WRAP32(cpu_state.wd_end - cpu_state.cycle)) ){
     cycle_next_event = cpu_state.wd_end; /* Set Watchdog timeout HW processing target */
    }
+   if ( (WRAP32(cpu_state.cycle - wd_last)) < wd_interval_min[0] ){ /* WDR debug counter */
+    wd_interval_min[0] = WRAP32(cpu_state.cycle - wd_last);
+    wd_interval_beg[0] = wd_last_pc;
+    wd_interval_end[0] = (cpu_state.pc - 1U) & 0x7FFFU;
+   }
+   wd_last    = cpu_state.cycle;
+   wd_last_pc = (cpu_state.pc - 1U) & 0x7FFFU;
    goto cy1_tail;
 
   case 0x37U: /* MUL */

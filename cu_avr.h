@@ -131,4 +131,11 @@ void  cu_avr_crom_update(auint base, auint len);
 void  cu_avr_io_update(void);
 
 
+/*
+** Returns last measured interval between WDR calls. Returns begin and end
+** (word) addresses of WDR instructions into beg and end.
+*/
+auint cu_avr_get_lastwdrinterval(auint* beg, auint* end);
+
+
 #endif

@@ -107,6 +107,24 @@ auint           event_it_vect;
 /* EEPROM change indicator */
 boole           eeprom_changed;
 
+/* Watchdog-based debug counter: Time of last WDR execution */
+auint           wd_last;
+
+/* Watchdog-based debug counter: PC of last WDR execution */
+auint           wd_last_pc;
+
+/* Watchdog-based debug counter: Smallest interval between two WDR calls in a
+** frame. Index 0 is the work value, Index 1 is the latched value. */
+auint           wd_interval_min[2];
+
+/* Watchdog-based debug counter: PC of baginning WDR of interval. Index 0 is
+** the work value, Index 1 is the latched value. */
+auint           wd_interval_beg[2];
+
+/* Watchdog-based debug counter: PC of ending WDR of interval. Index 0 is the
+** work value, Index 1 is the latched value. */
+auint           wd_interval_end[2];
+
 
 
 /* Watchdog 16 millisecond timer base tick count */
@@ -114,6 +132,9 @@ boole           eeprom_changed;
 
 /* Watchdog timing seed mask base, used to mask for the 16 ms timer */
 #define WD_SEED_MASK 2048U
+
+/* Watchdog-based debug counter: Maximal interval to display */
+#define WD_INTERVAL_MAX 1000000U
 
 /* EEPROM programming time base, assume ~1.75ms */
 #define EEPROM_EWR_TIM 50000U
@@ -945,10 +966,19 @@ void  cu_avr_reset(void)
  timer1_base        = cpu_state.cycle;
  event_it           = TRUE;
  event_it_enter     = FALSE;
+ wd_last            = cpu_state.cycle;
+ wd_last_pc         = 0U;
  cpu_state.spi_tran = FALSE;
  cpu_state.wd_end   = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
  cpu_state.eep_wrte = FALSE;
  cpu_state.spm_prge = FALSE;
+
+ wd_interval_min[0] = WD_INTERVAL_MAX;
+ wd_interval_min[1] = 0U;
+ wd_interval_beg[0] = 0U;
+ wd_interval_beg[1] = 0U;
+ wd_interval_end[0] = 0U;
+ wd_interval_end[1] = 0U;
 
  if (!pflags_done){
   cu_avrfg_fill(&cpu_pflags[0]);
@@ -993,12 +1023,25 @@ auint cu_avr_run(void)
   video_row.pno = video_pulsectr;
 
   if (video_pulsectr == 270U){ /* Frame completed, can return it */
+
    ret |= CU_GET_FRAME;
-  }else if (video_pulsectr == 0U){ /* Clear sync info for next frame (pulse 0 is already produced here) */
-   for (i = 1U; i < 271U; i++){
+
+   if (wd_interval_min[0] < WD_INTERVAL_MAX){ /* Latch WDR interval debug counter */
+    wd_interval_min[1] = wd_interval_min[0];
+    wd_interval_end[1] = wd_interval_end[0];
+    wd_interval_beg[1] = wd_interval_beg[0];
+   }
+   wd_interval_min[0] = WD_INTERVAL_MAX; /* Clear for next frame */
+   wd_interval_beg[0] = 0U;
+   wd_interval_end[0] = 0U;
+
+  }else if (video_pulsectr == 0U){
+
+   for (i = 1U; i < 271U; i++){ /* Clear sync info for next frame (pulse 0 is already produced here) */
     video_frame.pulse[i].rise = CU_NOSYNC;
     video_frame.pulse[i].fall = CU_NOSYNC;
    }
+
   }
 
  }else{ /* (Note: No CU_BREAK support yet) */
@@ -1156,4 +1199,17 @@ void  cu_avr_io_update(void)
 
  cycle_next_event = WRAP32(cpu_state.cycle + 1U); /* Request HW processing */
  event_it         = TRUE; /* Request interrupt processing */
+}
+
+
+
+/*
+** Returns last measured interval between WDR calls. Returns begin and end
+** (word) addresses of WDR instructions into beg and end.
+*/
+auint cu_avr_get_lastwdrinterval(auint* beg, auint* end)
+{
+ *beg = wd_interval_beg[1];
+ *end = wd_interval_end[1];
+ return wd_interval_min[1];
 }

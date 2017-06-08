@@ -83,7 +83,7 @@ static uint8 const textgui_bot[50U * 2U] = {
  ' ', ';', ' ', '0', 'x', ' ', ' ', ';', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'b', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
- ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+ 'W', 'D', 'R', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 
  'P', 'o', 'r', 't', '3', 'A', ':', ' ', ' ', ' ',
  ' ', ';', ' ', '0', 'x', ' ', ' ', ';', ' ', ' ',
@@ -189,6 +189,35 @@ static void textgui_putdec(auint x, auint y, auint val,
 
  n = (val       ) % 10U;
  textgui_putchar(x + 12U, y, n + '0', rs);
+}
+
+
+
+/*
+** Outputs a decimal number between 0 - 999999. The number is truncated if it
+** is larger, leading zeroes will be generated this case.
+*/
+static void textgui_putdecx(auint x, auint y, auint val,
+                            textgui_rs_t const* rs)
+{
+ auint n;
+
+ n = (val / 100000U) % 10U;
+ if ((val >= 1000000U) || (n != 0U)){
+  textgui_putchar(x +  0U, y, n + '0', rs);
+ }
+
+ n = (val /  10000U) % 10U;
+ if ((val >=  100000U) || (n != 0U)){
+  textgui_putchar(x +  6U, y, n + '0', rs);
+ }
+
+ n = (val /   1000U) % 10U;
+ if ((val >=   10000U) || (n != 0U)){
+  textgui_putchar(x + 12U, y, n + '0', rs);
+ }
+
+ textgui_putdec(x + 18U, y, val, rs);
 }
 
 
@@ -333,6 +362,20 @@ void textgui_draw(boole nogrf)
    textgui_putchar(BOT_X(19U + j), BOT_Y(i), ((t >> (7U - j)) & 1U) + '0', &rsnoprn);
   }
  }
+
+ /* WDR interval debug counter */
+
+ textgui_putdecx(BOT_X(44U), BOT_Y(0), textgui_elements.wdrint, &rsnoprn);
+ t = textgui_elements.wdrbeg << 1;
+ textgui_putchar(BOT_X(40U), BOT_Y(1), textgui_tohex(t >> 12), &rsnoprn);
+ textgui_putchar(BOT_X(41U), BOT_Y(1), textgui_tohex(t >>  8), &rsnoprn);
+ textgui_putchar(BOT_X(42U), BOT_Y(1), textgui_tohex(t >>  4), &rsnoprn);
+ textgui_putchar(BOT_X(43U), BOT_Y(1), textgui_tohex(t >>  0), &rsnoprn);
+ t = textgui_elements.wdrend << 1;
+ textgui_putchar(BOT_X(46U), BOT_Y(1), textgui_tohex(t >> 12), &rsnoprn);
+ textgui_putchar(BOT_X(47U), BOT_Y(1), textgui_tohex(t >>  8), &rsnoprn);
+ textgui_putchar(BOT_X(48U), BOT_Y(1), textgui_tohex(t >>  4), &rsnoprn);
+ textgui_putchar(BOT_X(49U), BOT_Y(1), textgui_tohex(t >>  0), &rsnoprn);
 
  if (prmsg){ conout_send(); }
 }

@@ -288,6 +288,7 @@ static void main_loop(void)
 
  tgui->ports[0] = ecpu->iors[0x39U];
  tgui->ports[1] = ecpu->iors[0x3AU];
+ tgui->wdrint = cu_avr_get_lastwdrinterval(&(tgui->wdrbeg), &(tgui->wdrend));
 
  if (main_t500 >= 500U){
   main_t500 -= 500U;
