@@ -426,6 +426,8 @@ static void op_16(auint arg1, auint arg2) /* ANDI */
 
 static void op_17(auint arg1, auint arg2) /* SPM */
 {
+ auint tmp;
+ auint res;
  if ( ((cpu_state.iors[CU_IO_SPMCSR] & 0x01U) != 0U) && /* SPM instruction enabled */
       (!cpu_state.spm_prge) ){            /* Programming is not in progress */
   if ( (cpu_state.spm_mode == 0x02U) ||   /* Page erase */
