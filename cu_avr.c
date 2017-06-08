@@ -133,9 +133,6 @@ auint           wd_interval_end[2];
 /* Watchdog timing seed mask base, used to mask for the 16 ms timer */
 #define WD_SEED_MASK 2048U
 
-/* Watchdog-based debug counter: Maximal interval to display */
-#define WD_INTERVAL_MAX 1000000U
-
 /* EEPROM programming time base, assume ~1.75ms */
 #define EEPROM_EWR_TIM 50000U
 
@@ -144,6 +141,9 @@ auint           wd_interval_end[2];
 
 /* Maximal cycles in a video scanline (above which sync error is returned) */
 #define VIDEO_CY_MAX 1920U
+
+/* Watchdog-based debug counter: Maximal interval to display */
+#define WD_INTERVAL_MAX (VIDEO_CY_MAX * 262U / 2U)
 
 
 /* Flags in CU_IO_SREG */
