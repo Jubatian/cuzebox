@@ -699,6 +699,7 @@ static void  cu_avr_write_io(auint port, auint val)
     if (audio_rp == audio_wp){ audio_rp = (audio_rp + 1U) & 0x3U; }
     audio_wp = (audio_wp + 1U) & 0x3U;
    }
+   break;
 
   case CU_IO_TCNT1H:  /* Timer1 counter, high */
 
