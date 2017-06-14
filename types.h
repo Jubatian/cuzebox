@@ -56,7 +56,7 @@
 #if (FLAG_SELFCONT != 0)
 #define print_error(...)
 #define print_message(...)
-#define print_unf(str) fputs(str, stdout)
+#define print_unf(str)
 #else
 #define print_error(...) fprintf(stderr, __VA_ARGS__)
 #define print_message(...) printf(__VA_ARGS__)
