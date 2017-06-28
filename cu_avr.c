@@ -852,6 +852,7 @@ static void  cu_avr_write_io(auint port, auint val)
    if ((((~pval) & cval) & SREG_IM) != 0U){
     event_it = TRUE;  /* Interrupts become enabled, so check them */
    }
+   break;
 
   default:
 
