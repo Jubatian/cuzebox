@@ -491,7 +491,7 @@ void  cu_spisd_send(auint data, auint cycle)
        break;
 
       case 58U: /* Read OCR */
-       sd_state.crarg = 0x80FF0000U; /* Report as an SDSC card */
+       sd_state.crarg = 0x00FF0000U; /* Report as an SDSC card & Not finished power up */
        sd_state.cmd   = SCMD_X;
        sd_state.evcnt = 0U;
        break;
@@ -504,6 +504,9 @@ void  cu_spisd_send(auint data, auint cycle)
             ((sd_state.crarg & 0xBF00FFFFU) == 0U) ){
         sd_state.state = STAT_IINIT;
         sd_state.next  = WRAP32(cycle + (SPI_1MS * SD_INIMS));
+        sd_state.crarg = 0x00FF0000U; /* Report as an SDSC card & Not finished power up */
+        sd_state.cmd   = SCMD_X;
+        sd_state.evcnt = 0U;
        }else{
         sd_state.r1 |= R1_ILL;
        }
@@ -540,8 +543,12 @@ void  cu_spisd_send(auint data, auint cycle)
 
       case  1U: /* Initiate initialization */
       case (41U | SCMD_A):
+       sd_state.crarg = 0x00FF0000U; /* Report as an SDSC card & Not finished power up */
+       sd_state.cmd   = SCMD_X;
+       sd_state.evcnt = 0U;
        if (WRAP32(sd_state.next - cycle) >= 0x80000000U){ /* Initialized */
         sd_state.state = STAT_AVAIL;
+        sd_state.crarg |= 0x80000000U; /* Powered up */
        }else{
         sd_state.r1 |= R1_IDLE;
        }
@@ -617,7 +624,7 @@ void  cu_spisd_send(auint data, auint cycle)
       break;
 
      case 58U: /* Read OCR */
-      sd_state.crarg = 0x80FF0000U; /* Report as an SDSC card */
+      sd_state.crarg = 0x80FF0000U; /* Report as an SDSC card & Finished power up */
       sd_state.cmd   = SCMD_X;
       sd_state.evcnt = 0U;
       break;
