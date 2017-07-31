@@ -35,6 +35,12 @@
 /* SD card state */
 static cu_state_spisd_t sd_state;
 
+/* CRC7 table (for SD commands) */
+static auint sd_crc7_table[256];
+
+/* CRC16 table (for SD data) */
+static auint sd_crc16_table[256];
+
 
 
 /* 400KHz SPI transfer clocks */
@@ -144,12 +150,37 @@ static cu_state_spisd_t sd_state;
 
 
 /*
+** Running CRC7 calculation for a byte.
+*/
+static auint cu_spisd_crc7_byte(auint crcval, auint byte)
+{
+ return sd_crc7_table[(byte ^ (crcval << 1)) & 0xFFU];
+}
+
+
+
+/*
+** Running CRC16 calculation for a byte.
+*/
+static auint cu_spisd_crc16_byte(auint crcval, auint byte)
+{
+ return (sd_crc16_table[(byte ^ (crcval >> 8)) & 0xFFU] ^ (crcval << 8)) & 0xFFFFU;
+}
+
+
+
+/*
 ** Resets SD card peripheral. Cycle is the CPU cycle when it happens which
 ** might be used for emulating timing constraints.
 */
 void  cu_spisd_reset(auint cycle)
 {
+ auint byt;
+ auint bit;
+ auint crc;
+
  sd_state.ena   = FALSE;
+ sd_state.crc   = TRUE;
  sd_state.enac  = cycle;
  sd_state.state = STAT_UNINIT;
  sd_state.next  = cycle;
@@ -160,6 +191,29 @@ void  cu_spisd_reset(auint cycle)
  sd_state.r1    = 0U;
  sd_state.data  = 0xFFU;
  sd_state.pstat = PSTAT_IDLE;
+
+ /* Generate CRC7 table */
+
+ for (byt = 0U; byt < 256U; byt ++){
+  crc = byt;
+  if ((crc & 0x80U) != 0U){ crc ^= 0x89U; }
+  for (bit = 1U; bit < 8U; bit ++){
+   crc <<= 1;
+   if ((crc & 0x80U) != 0U){ crc ^= 0x89U; }
+  }
+  sd_crc7_table[byt] = (crc & 0xFFU);
+ }
+
+ /* Generate CRC16 table */
+
+ for (byt = 0U; byt < 256U; byt ++){
+  crc = byt << 8;
+  for (bit = 0U; bit < 8U; bit ++){
+   crc <<= 1;
+   if ((crc & 0x10000U) != 0U){ crc ^= 0x1021U; }
+  }
+  sd_crc16_table[byt] = (crc & 0xFFFFU);
+ }
 
  cu_vfat_reset();
 }
@@ -209,6 +263,7 @@ void  cu_spisd_send(auint data, auint cycle)
     sd_state.data  = 0xFEU; /* Read data token */
     sd_state.pstat = PSTAT_RDATA;
     sd_state.ppos  = 0U;
+    sd_state.crc16 = 0x0000U;
    }else{
     sd_state.ppos  ++;
    }
@@ -216,6 +271,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case PSTAT_RDATA:     /* Read data bytes (512) */
    sd_state.data  = cu_vfat_read((sd_state.paddr << 9) + sd_state.ppos);
+   sd_state.crc16 = cu_spisd_crc16_byte(sd_state.crc16, sd_state.data);
    sd_state.ppos  ++;
    if (sd_state.ppos == 512U){
     sd_state.pstat = PSTAT_RCRC;
@@ -224,11 +280,13 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case PSTAT_RCRC:      /* Read CRC bytes (2) */
-   sd_state.data  = 0x00U; /* SD CRC is currently unsupported */
-   sd_state.ppos  ++;
-   if (sd_state.ppos == 2U){
+   if       (sd_state.ppos == 0U){
+    sd_state.data = (sd_state.crc16 >> 8) & 0xFFU;
+   }else{
+    sd_state.data = (sd_state.crc16     ) & 0xFFU;
     sd_state.pstat = PSTAT_IDLE;
    }
+   sd_state.ppos  ++;
    break;
 
   case PSTAT_W24PREP:   /* CMD24 Write wait for data token */
