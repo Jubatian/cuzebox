@@ -40,8 +40,9 @@
 typedef struct{
  boole ena;      /* Chip select state, TRUE: Enabled (CS low) */
  boole crc;      /* CRC checking state, TRUE: Enabled */
- auint crc7;     /* CRC7 value for running CRC calculations */
- auint crc16;    /* CRC16 value for running CRC calculations */
+ auint cc7v;     /* CRC7 value for running CRC calculations */
+ auint cc16v;    /* CRC16 value for running CRC calculations */
+ auint cc16c;    /* CRC16 collected value for comparison */
  auint enac;     /* Cycle of last chip select toggle */
  auint state;    /* SD card state machine */
  auint next;     /* Next event's cycle. Actual interpretation depends on state. */

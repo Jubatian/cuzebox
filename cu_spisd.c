@@ -243,7 +243,6 @@ void  cu_spisd_cs_set(boole ena, auint cycle)
 */
 void  cu_spisd_send(auint data, auint cycle)
 {
- boole atcrc = FALSE;   /* Mark that data contains the CRC of a parsed command */
  boole atend = FALSE;   /* Mark that a command ended, need to form a response */
  boole write = FALSE;   /* In writing (to block command processing) */
  auint cmd   = sd_state.cmd; /* Save for command processing */
@@ -263,7 +262,7 @@ void  cu_spisd_send(auint data, auint cycle)
     sd_state.data  = 0xFEU; /* Read data token */
     sd_state.pstat = PSTAT_RDATA;
     sd_state.ppos  = 0U;
-    sd_state.crc16 = 0x0000U;
+    sd_state.cc16v = 0x0000U;
    }else{
     sd_state.ppos  ++;
    }
@@ -271,7 +270,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case PSTAT_RDATA:     /* Read data bytes (512) */
    sd_state.data  = cu_vfat_read((sd_state.paddr << 9) + sd_state.ppos);
-   sd_state.crc16 = cu_spisd_crc16_byte(sd_state.crc16, sd_state.data);
+   sd_state.cc16v = cu_spisd_crc16_byte(sd_state.cc16v, sd_state.data);
    sd_state.ppos  ++;
    if (sd_state.ppos == 512U){
     sd_state.pstat = PSTAT_RCRC;
@@ -281,9 +280,9 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case PSTAT_RCRC:      /* Read CRC bytes (2) */
    if       (sd_state.ppos == 0U){
-    sd_state.data = (sd_state.crc16 >> 8) & 0xFFU;
+    sd_state.data  = (sd_state.cc16v >> 8) & 0xFFU;
    }else{
-    sd_state.data = (sd_state.crc16     ) & 0xFFU;
+    sd_state.data  = (sd_state.cc16v     ) & 0xFFU;
     sd_state.pstat = PSTAT_IDLE;
    }
    sd_state.ppos  ++;
@@ -294,6 +293,7 @@ void  cu_spisd_send(auint data, auint cycle)
     if (data == 0xFEU){ /* Data token */
      sd_state.pstat = PSTAT_W24DATA;
      sd_state.ppos  = 0U;
+     sd_state.cc16v = 0x0000U;
     }
    }else{
     sd_state.ppos ++;
@@ -303,6 +303,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case PSTAT_W24DATA:   /* CMD24 Write accept data (512) */
    cu_vfat_write((sd_state.paddr << 9) + sd_state.ppos, data);
+   sd_state.cc16v = cu_spisd_crc16_byte(sd_state.cc16v, data);
    sd_state.ppos  ++;
    if (sd_state.ppos == 512U){
     sd_state.pstat = PSTAT_W24CRC;
@@ -312,13 +313,20 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case PSTAT_W24CRC:    /* CMD24 Write accept CRC (2) */
-   /* CRC is silently ignored (not supported) */
-   sd_state.ppos  ++;
-   if (sd_state.ppos == 2U){
+   if       (sd_state.ppos == 0U){
+    sd_state.cc16c = data << 8;
+   }else{
+    sd_state.cc16c |= data;
     sd_state.pstat = PSTAT_WBUSY;
     sd_state.next  = WRAP32(cycle + (WRITE_T * SPI_1MS));
-    sd_state.data  = 0x05U; /* Data response token: Accepted. */
+    if ((sd_state.crc) && (sd_state.cc16c != sd_state.cc16v)){
+     /* Note: Actual rejection is not implemented (data is still written) */
+     sd_state.data  = 0x0BU; /* Data response token: Rejected due to CRC. */
+    }else{
+     sd_state.data  = 0x05U; /* Data response token: Accepted. */
+    }
    }
+   sd_state.ppos  ++;
    write = TRUE;
    break;
 
@@ -327,6 +335,7 @@ void  cu_spisd_send(auint data, auint cycle)
     if (data == 0xFCU){    /* Data token */
      sd_state.pstat = PSTAT_W25DATA;
      sd_state.ppos  = 0U;
+     sd_state.cc16v = 0x0000U;
     }else{
      if (data == 0xFDU){   /* Stop transmission */
       sd_state.pstat = PSTAT_WBUSY;
@@ -341,6 +350,7 @@ void  cu_spisd_send(auint data, auint cycle)
 
   case PSTAT_W25DATA:   /* CMD25 Write accept data (512) */
    cu_vfat_write((sd_state.paddr << 9) + sd_state.ppos, data);
+   sd_state.cc16v = cu_spisd_crc16_byte(sd_state.cc16v, data);
    sd_state.ppos  ++;
    if (sd_state.ppos == 512U){
     sd_state.pstat = PSTAT_W25CRC;
@@ -350,12 +360,19 @@ void  cu_spisd_send(auint data, auint cycle)
    break;
 
   case PSTAT_W25CRC:    /* CMD25 Write accept CRC (2) */
-   /* CRC is silently ignored (not supported) */
-   sd_state.ppos  ++;
-   if (sd_state.ppos == 2U){
+   if       (sd_state.ppos == 0U){
+    sd_state.cc16c = data << 8;
+    sd_state.ppos  ++;
+   }else{
+    sd_state.cc16c |= data;
     sd_state.pstat = PSTAT_W25PREP;
-    sd_state.data  = 0x05U; /* Data response token: Accepted. */
     sd_state.ppos  = 0U;    /* Skip being busy here */
+    if ((sd_state.crc) && (sd_state.cc16c != sd_state.cc16v)){
+     /* Note: Actual rejection is not implemented (data is still written) */
+     sd_state.data  = 0x0BU; /* Data response token: Rejected due to CRC. */
+    }else{
+     sd_state.data  = 0x05U; /* Data response token: Accepted. */
+    }
    }
    write = TRUE;
    break;
@@ -409,17 +426,21 @@ void  cu_spisd_send(auint data, auint cycle)
      sd_state.crarg = 0U;
      sd_state.evcnt = 0U;
      sd_state.r1    = 0U;
+     sd_state.cc7v  = cu_spisd_crc7_byte(0x00U, data);
     }
 
    }else if ((sd_state.cmd & SCMD_N) == 0U){ /* Processing command */
 
     if (sd_state.evcnt < 4U){ /* Data bytes */
      sd_state.crarg |= data << ((3U - sd_state.evcnt) * 8U);
+     sd_state.cc7v  = cu_spisd_crc7_byte(sd_state.cc7v, data);
      sd_state.evcnt ++;
     }else{                    /* CRC byte */
      sd_state.cmd  |= SCMD_N;
      sd_state.evcnt = 0U;
-     atcrc = TRUE;
+     if (sd_state.crc && (((sd_state.cc7v << 1) | 0x01U) != data)){
+      sd_state.r1 |= R1_CRC;  /* CRC error detected (Only if CRC is ON) */
+     }
      sd_state.data  = 0xFFU;  /* Forced stuff byte (overriding transmission data if any) */
     }
 
@@ -479,6 +500,7 @@ void  cu_spisd_send(auint data, auint cycle)
     if (sd_state.evcnt == 10U){ /* 80 pulses got, so enter Native mode */
      sd_state.state = STAT_NATIVE;
      sd_state.cmd   = 0U;
+     sd_state.crc   = TRUE;     /* CRC is turned ON by this transition */
     }
    }else{
     sd_state.state = STAT_UNINIT;
@@ -490,22 +512,27 @@ void  cu_spisd_send(auint data, auint cycle)
    sd_state.pstat = PSTAT_IDLE;
    if ( (WRAP32(cycle - sd_state.recvc) >= INIF_HI) && /* SPI timing constraint OK */
         (WRAP32(cycle - sd_state.recvc) <= INIF_LO) ){ /* SPI timing constraint OK */
-    if (atcrc){
-     if ( ((cmd & 0x3FU) != 0U) ||
-          (sd_state.crarg != 0U) ||
-          (data != 0x95U) ){
-      sd_state.r1 |= R1_ILL; /* Not a valid CMD0 */
+
+    if ((atend) && (sd_state.r1 == 0x00U)){ /* No error yet */
+     switch (cmd & (0x3FU | SCMD_A)){
+
+      case  0U: /* Go idle state */
+       sd_state.r1   |= R1_IDLE;
+       sd_state.state = STAT_IDLE;
+       sd_state.crc   = FALSE; /* CRC is turned OFF by this command */
+       break;
+
+      default:  /* Other commands are not supported in native mode */
+       sd_state.r1 |= R1_ILL;
+       break;
      }
     }
     if (atend){
-     if (sd_state.r1 == 0U){
-      sd_state.r1   |= R1_IDLE;
-      sd_state.data  = sd_state.r1;
-      sd_state.state = STAT_IDLE;
-     }
+     sd_state.data  = sd_state.r1;
     }
-    break;
+
    }
+   break;
 
   case STAT_IDLE:          /* Idle state, waiting for some initialization */
   case STAT_VERIFIED:      /* Verified state, same */
@@ -521,13 +548,7 @@ void  cu_spisd_send(auint data, auint cycle)
     ** CMD59
     ** ACMD41 (only in Verified state)
     */
-    if ( (atcrc) &&
-         ((cmd & (0x3FU | SCMD_A)) == 8U) &&
-         (data != 0x87U) &&
-         (sd_state.crarg != 0x000001AAU) ){
-     sd_state.r1 |= R1_CRC;
-    }
-    if (atend){
+    if ((atend) && (sd_state.r1 == 0x00U)){ /* No error yet */
      switch (cmd & (0x3FU | SCMD_A)){
 
       case  0U: /* Go idle state */
@@ -540,7 +561,9 @@ void  cu_spisd_send(auint data, auint cycle)
        break;
 
       case  8U: /* Send Interface Condition */
-       if (sd_state.r1 == 0U){ /* No error, accept */
+       if (sd_state.crarg != 0x000001AAU){
+        sd_state.r1    = 0xFFU; /* Bad argument, reject */
+       }else{
         sd_state.crarg = 0x000001AAU;
         sd_state.cmd   = SCMD_X;
         sd_state.evcnt = 0U;
@@ -555,7 +578,8 @@ void  cu_spisd_send(auint data, auint cycle)
        break;
 
       case 59U: /* Toggle CRC checks */
-       break;   /* Not supported, just pretend it works */
+       sd_state.crc = (sd_state.crarg == 0x00000000U);
+       break;
 
       case (41U | SCMD_A): /* Initiate initialization */
        if ( (sd_state.state == STAT_VERIFIED) &&
@@ -574,7 +598,8 @@ void  cu_spisd_send(auint data, auint cycle)
        sd_state.r1 |= R1_ILL;
        break;
      }
-
+    }
+    if (atend){
      sd_state.r1   |= R1_IDLE;
      sd_state.data  = sd_state.r1;
     }
@@ -591,7 +616,7 @@ void  cu_spisd_send(auint data, auint cycle)
     ** CMD1
     ** ACMD41
     */
-    if (atend){
+    if ((atend) && (sd_state.r1 == 0x00U)){ /* No error yet */
      switch (cmd & (0x3FU | SCMD_A)){
 
       case  0U: /* Go idle state */
@@ -617,6 +642,8 @@ void  cu_spisd_send(auint data, auint cycle)
        sd_state.r1 |= R1_IDLE;
        break;
      }
+    }
+    if (atend){
      sd_state.data  = sd_state.r1;
     }
    }
@@ -632,10 +659,10 @@ void  cu_spisd_send(auint data, auint cycle)
    ** CMD24 (Write block)
    ** CMD25 (Write multiple blocks)
    ** CMD58 (Read OCR - some init methods might do it here to get card type)
-   ** CMD59 (Toggle CRC, ignored)
+   ** CMD59 (Toggle CRC)
    ** ACMD23 (Blocks to pre-erase, just accept and ignore)
    */
-   if (atend){
+   if ((atend) && (sd_state.r1 == 0x00U)){ /* No error yet */
     switch (cmd & (0x3FU | SCMD_A)){
 
      case  0U: /* Go idle state */
@@ -688,7 +715,8 @@ void  cu_spisd_send(auint data, auint cycle)
       break;
 
      case 59U: /* Toggle CRC checks */
-      break;   /* Not supported, just pretend it works */
+      sd_state.crc = (sd_state.crarg == 0x00000000U);
+      break;
 
      case (23U | SCMD_A): /* Blocks to pre-erase */
       break;   /* Accept but ignore (pre-erased blocks would have undefined state anyway) */
@@ -697,6 +725,8 @@ void  cu_spisd_send(auint data, auint cycle)
       sd_state.r1 |= R1_ILL;
       break;
     }
+   }
+   if (atend){
     sd_state.data  = sd_state.r1;
    }
    break;
