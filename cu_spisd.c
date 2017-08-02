@@ -201,7 +201,7 @@ void  cu_spisd_reset(auint cycle)
    crc <<= 1;
    if ((crc & 0x80U) != 0U){ crc ^= 0x89U; }
   }
-  sd_crc7_table[byt] = (crc & 0xFFU);
+  sd_crc7_table[byt] = (crc & 0x7FU);
  }
 
  /* Generate CRC16 table */
