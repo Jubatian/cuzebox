@@ -124,3 +124,9 @@ FLAG_NOGAMEFILE=0
 # in ~25Kb smaller output.
 #
 FLAG_NATIVE=0
+#
+#
+# Force using SDL1 instead of SDL2. The latter is the default for all targets
+# except Emscripten.
+#
+FLAG_USE_SDL1=0

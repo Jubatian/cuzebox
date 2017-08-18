@@ -56,7 +56,12 @@ endif
 #
 ifeq ($(TSYS),linux)
 CFLAGS+= -DTARGET_LINUX
+ifeq ($(FLAG_USE_SDL1),0)
 LINKB= -lSDL2
+else
+CFLAGS+= -DUSE_SDL1
+LINKB= -lSDL
+endif
 ENABLE_VCAP=$(FLAG_VCAP)
 endif
 #
@@ -66,7 +71,12 @@ endif
 ifeq ($(TSYS),windows_mingw)
 OUT=cuzebox.exe
 CFLAGS+= -DTARGET_WINDOWS_MINGW -Dmain=SDL_main
+ifeq ($(FLAG_USE_SDL1),0)
 LINKB= -lmingw32 -lSDL2main -lSDL2 -mwindows
+else
+CFLAGS+= -DUSE_SDL1
+LINKB= -lmingw32 -lSDLmain -lSDL -mwindows
+endif
 ENABLE_VCAP=$(FLAG_VCAP)
 CHCONV=chconv.exe
 BINCONV=binconv.exe
