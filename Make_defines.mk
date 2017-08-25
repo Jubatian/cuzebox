@@ -2,7 +2,7 @@
 # Make - definitions #
 ######################
 #
-#  Copyright (C) 2016
+#  Copyright (C) 2016 - 2017
 #    Sandor Zsuga (Jubatian)
 #  Uzem (the base of CUzeBox) is copyright (C)
 #    David Etherton,
@@ -126,6 +126,7 @@ OUT?=cuzebox
 CHCONV?=chconv
 BINCONV?=binconv
 CC=$(CCOMP)
+CFLAGS+= -DVER_STRING=\"$(VER_STRING)\"
 ifneq ($(ENABLE_VCAP),0)
 CFLAGS+= -DENABLE_VCAP=1
 endif

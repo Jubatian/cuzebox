@@ -1,7 +1,7 @@
 /*
  *  Main
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -427,6 +427,13 @@ int main (int argc, char** argv)
  auint             flg;
  textgui_struct_t* tgui;
  boole             uzefile = FALSE;
+
+
+ print_unf(main_title);
+ print_unf(" ");
+ print_unf(VER_STRING);
+ print_unf("\n");
+
 
  if (argc > 1){ game = argv[1]; }
  filesys_setpath(game, &(tstr[0]), 100U); /* Locate everything beside the game */

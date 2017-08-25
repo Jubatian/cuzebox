@@ -1,7 +1,7 @@
 /*
  *  Text GUI elements
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -91,6 +91,9 @@ static uint8 const textgui_bot[50U * 2U] = {
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 };
+
+/* Version string */
+static uint8 const textgui_ver[14U] = VER_STRING;
 
 /* Controller mappings */
 static uint8 const textgui_kbsnes[] = {'S', 'N', 'E', 'S', 0U};
@@ -293,6 +296,13 @@ void textgui_draw(boole nogrf)
   for (i = 0U; i < 50U; i++){
    textgui_putchar(BOT_X(i), BOT_Y(j), textgui_bot[(j * 50U) + i], &rsnoprn);
   }
+ }
+
+ i = 0U;
+ while (textgui_ver[i] != 0U){
+  textgui_putchar(TOP_X(13U + i), TOP_Y(0), textgui_ver[i], &rsnoprn);
+  i ++;
+  if (i >= sizeof(textgui_ver)){ break; }
  }
 
  /* Get speed percentage from CPU frequency (which should be 28636400Hz) */
