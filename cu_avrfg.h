@@ -1,7 +1,7 @@
 /*
  *  AVR flag generator
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -35,21 +35,21 @@
 #include "cu_types.h"
 
 
-/* Position of ADD flags ((src << 8) + dst) where src might be 0x100 due to carry */
+/* Position of ADD flags ((c << 16) + (src << 8) + dst) */
 #define CU_AVRFG_ADD  0x00000U
-/* Position of SUB flags ((src << 8) + dst) where src might be 0x100 due to carry */
-#define CU_AVRFG_SUB  0x10100U
+/* Position of SUB flags ((c << 16) + (src << 8) + dst) */
+#define CU_AVRFG_SUB  0x20000U
 /* Position of SHR flags (((src & 1U) << 8) + res) */
-#define CU_AVRFG_SHR  0x20200U
+#define CU_AVRFG_SHR  0x40000U
 /* Position of LOG flags (res) */
-#define CU_AVRFG_LOG  0x20400U
+#define CU_AVRFG_LOG  0x40200U
 /* Position of INC flags (res) */
-#define CU_AVRFG_INC  0x20500U
+#define CU_AVRFG_INC  0x40300U
 /* Position of DEC flags (res) */
-#define CU_AVRFG_DEC  0x20600U
+#define CU_AVRFG_DEC  0x40400U
 
 /* Total size of flag precalc table */
-#define CU_AVRFG_SIZE 0x20700U
+#define CU_AVRFG_SIZE 0x40500U
 
 
 /*

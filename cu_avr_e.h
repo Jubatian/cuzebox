@@ -1,7 +1,7 @@
 /*
  *  AVR microcontroller emulation, opcode decoder for Emscripten builds
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -105,30 +105,34 @@ typedef void(avr_opcode)(auint arg1, auint arg2);
   mul_tail_fmul(); \
  }while(0)
 
-#define add_tail() \
+#define sub_tail_flg() \
  do{ \
-  auint dst   = cpu_state.iors[arg1]; \
-  auint res; \
-  src  += cpu_state.iors[arg2]; \
-  res   = dst + src; \
+  cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) | \
+                               cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst]; \
+  cy1_tail(); \
+ }while(0)
+
+#define sub_tail() \
+ do{ \
+  auint res   = dst - src; \
   cpu_state.iors[arg1] = res; \
-  cpu_state.iors[CU_IO_SREG] = (flags & (SREG_IM | SREG_TM)) | \
-                               cpu_pflags[CU_AVRFG_ADD + (src << 8) + dst]; \
+  sub_tail_flg(); \
+ }while(0)
+
+#define sbc_tail_flg() \
+ do{ \
+  cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) & \
+                               (cpu_pflags[CU_AVRFG_SUB + (SREG_GET_C(flags) << 16) + (src << 8) + dst] | (SREG_IM | SREG_TM)); \
   cy1_tail(); \
  }while(0)
 
 #define sbc_tail() \
  do{ \
+  auint dst   = cpu_state.iors[arg1]; \
   auint flags = cpu_state.iors[CU_IO_SREG]; \
-  auint dst; \
-  auint res; \
-  src  += SREG_GET_C(flags); \
-  dst   = cpu_state.iors[arg1]; \
-  res   = dst - src; \
+  auint res   = dst - (src + SREG_GET_C(flags)); \
   cpu_state.iors[arg1] = res; \
-  cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) & \
-                               (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM)); \
-  cy1_tail(); \
+  sbc_tail_flg(); \
  }while(0)
 
 #define log_tail() \
@@ -168,13 +172,6 @@ typedef void(avr_opcode)(auint arg1, auint arg2);
   }else{ \
    cpu_state.iors[arg1] = cu_avr_read_io(tmp); \
   } \
-  cy1_tail(); \
- }while(0)
-
-#define sub_tail() \
- do{ \
-  cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) | \
-                               cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst]; \
   cy1_tail(); \
  }while(0)
 
@@ -314,11 +311,9 @@ static void op_06(auint arg1, auint arg2) /* FMULSU */
 static void op_07(auint arg1, auint arg2) /* CPC */
 {
  auint flags = cpu_state.iors[CU_IO_SREG];
- auint src   = cpu_state.iors[arg2] + SREG_GET_C(flags);
+ auint src   = cpu_state.iors[arg2];
  auint dst   = cpu_state.iors[arg1];
- cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
-                              (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM));
- cy1_tail();
+ sbc_tail_flg();
 }
 
 static void op_08(auint arg1, auint arg2) /* SBC */
@@ -329,9 +324,13 @@ static void op_08(auint arg1, auint arg2) /* SBC */
 
 static void op_09(auint arg1, auint arg2) /* ADD */
 {
- auint flags = cpu_state.iors[CU_IO_SREG];
- auint src   = 0U;
- add_tail();
+ auint src   = cpu_state.iors[arg2];
+ auint dst   = cpu_state.iors[arg1];
+ auint res   = dst + src;
+ cpu_state.iors[arg1] = res;
+ cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
+                              cpu_pflags[CU_AVRFG_ADD + (src << 8) + dst];
+ cy1_tail();
 }
 
 static void op_0A(auint arg1, auint arg2) /* CPSE */
@@ -345,25 +344,28 @@ static void op_0A(auint arg1, auint arg2) /* CPSE */
 
 static void op_0B(auint arg1, auint arg2) /* CP */
 {
- auint dst   = cpu_state.iors[arg1];
  auint src   = cpu_state.iors[arg2];
- sub_tail();
+ auint dst   = cpu_state.iors[arg1];
+ sub_tail_flg();
 }
 
 static void op_0C(auint arg1, auint arg2) /* SUB */
 {
- auint dst   = cpu_state.iors[arg1];
  auint src   = cpu_state.iors[arg2];
- auint res   = dst - src;
- cpu_state.iors[arg1] = res;
+ auint dst   = cpu_state.iors[arg1];
  sub_tail();
 }
 
 static void op_0D(auint arg1, auint arg2) /* ADC */
 {
+ auint src   = cpu_state.iors[arg2];
+ auint dst   = cpu_state.iors[arg1];
  auint flags = cpu_state.iors[CU_IO_SREG];
- auint src   = SREG_GET_C(flags);
- add_tail();
+ auint res   = dst + (src + SREG_GET_C(flags));
+ cpu_state.iors[arg1] = res;
+ cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
+                              (cpu_pflags[CU_AVRFG_ADD + (SREG_GET_C(flags) << 16) + (src << 8) + dst] | (SREG_IM | SREG_TM));
+ cy1_tail();
 }
 
 static void op_0E(auint arg1, auint arg2) /* AND */
@@ -392,9 +394,9 @@ static void op_11(auint arg1, auint arg2) /* MOV */
 
 static void op_12(auint arg1, auint arg2) /* CPI */
 {
- auint dst   = cpu_state.iors[arg1];
  auint src   = arg2;
- sub_tail();
+ auint dst   = cpu_state.iors[arg1];
+ sub_tail_flg();
 }
 
 static void op_13(auint arg1, auint arg2) /* SBCI */
@@ -405,10 +407,8 @@ static void op_13(auint arg1, auint arg2) /* SBCI */
 
 static void op_14(auint arg1, auint arg2) /* SUBI */
 {
- auint dst   = cpu_state.iors[arg1];
  auint src   = arg2;
- auint res   = dst - src;
- cpu_state.iors[arg1] = res;
+ auint dst   = cpu_state.iors[arg1];
  sub_tail();
 }
 
@@ -583,10 +583,8 @@ static void op_24(auint arg1, auint arg2) /* COM */
 
 static void op_25(auint arg1, auint arg2) /* NEG */
 {
- auint dst   = 0x00U;
  auint src   = cpu_state.iors[arg1];
- auint res   = dst - src;
- cpu_state.iors[arg1] = res;
+ auint dst   = 0x00U;
  sub_tail();
 }
 

@@ -1,7 +1,7 @@
 /*
  *  AVR microcontroller emulation, opcode decoder for native builds
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -109,21 +109,23 @@ fmul_tail:
    goto mul_tail_fmul;
 
   case 0x07U: /* CPC */
-   flags = cpu_state.iors[CU_IO_SREG];
-   src   = cpu_state.iors[arg2] + SREG_GET_C(flags);
+   src   = cpu_state.iors[arg2];
    dst   = cpu_state.iors[arg1];
-   cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
-                                (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM));
-   goto cy1_tail;
+   flags = cpu_state.iors[CU_IO_SREG];
+   goto sbc_tail_flg;
 
   case 0x08U: /* SBC */
    src   = cpu_state.iors[arg2];
    goto sbc_tail;
 
   case 0x09U: /* ADD */
-   flags = cpu_state.iors[CU_IO_SREG];
-   src   = 0U;
-   goto add_tail;
+   src   = cpu_state.iors[arg2];
+   dst   = cpu_state.iors[arg1];
+   res   = dst + src;
+   cpu_state.iors[arg1] = res;
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
+                                cpu_pflags[CU_AVRFG_ADD + (src << 8) + dst];
+   goto cy1_tail;
 
   case 0x0AU: /* CPSE */
    if (cpu_state.iors[arg1] != cpu_state.iors[arg2]){
@@ -132,27 +134,23 @@ fmul_tail:
    goto skip_tail;
 
   case 0x0BU: /* CP */
-   dst   = cpu_state.iors[arg1];
    src   = cpu_state.iors[arg2];
-   goto sub_tail;
+   dst   = cpu_state.iors[arg1];
+   goto sub_tail_flg;
 
   case 0x0CU: /* SUB */
-   dst   = cpu_state.iors[arg1];
    src   = cpu_state.iors[arg2];
-   res   = dst - src;
-   cpu_state.iors[arg1] = res;
+   dst   = cpu_state.iors[arg1];
    goto sub_tail;
 
   case 0x0DU: /* ADC */
-   flags = cpu_state.iors[CU_IO_SREG];
-   src   = SREG_GET_C(flags);
-add_tail:
+   src   = cpu_state.iors[arg2];
    dst   = cpu_state.iors[arg1];
-   src  += cpu_state.iors[arg2];
-   res   = dst + src;
+   flags = cpu_state.iors[CU_IO_SREG];
+   res   = dst + (src + SREG_GET_C(flags));
    cpu_state.iors[arg1] = res;
    cpu_state.iors[CU_IO_SREG] = (flags & (SREG_IM | SREG_TM)) |
-                                cpu_pflags[CU_AVRFG_ADD + (src << 8) + dst];
+                                cpu_pflags[CU_AVRFG_ADD + (SREG_GET_C(flags) << 16) + (src << 8) + dst];
    goto cy1_tail;
 
   case 0x0EU: /* AND */
@@ -172,27 +170,25 @@ add_tail:
    goto cy1_tail;
 
   case 0x12U: /* CPI */
-   dst   = cpu_state.iors[arg1];
    src   = arg2;
-   goto sub_tail;
+   dst   = cpu_state.iors[arg1];
+   goto sub_tail_flg;
 
   case 0x13U: /* SBCI */
    src   = arg2;
 sbc_tail:
-   flags = cpu_state.iors[CU_IO_SREG];
-   src  += SREG_GET_C(flags);
    dst   = cpu_state.iors[arg1];
-   res   = dst - src;
+   flags = cpu_state.iors[CU_IO_SREG];
+   res   = dst - (src + SREG_GET_C(flags));
    cpu_state.iors[arg1] = res;
+sbc_tail_flg:
    cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
-                                (cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst] | (SREG_IM | SREG_TM));
+                                (cpu_pflags[CU_AVRFG_SUB + (SREG_GET_C(flags) << 16) + (src << 8) + dst] | (SREG_IM | SREG_TM));
    goto cy1_tail;
 
   case 0x14U: /* SUBI */
-   dst   = cpu_state.iors[arg1];
    src   = arg2;
-   res   = dst - src;
-   cpu_state.iors[arg1] = res;
+   dst   = cpu_state.iors[arg1];
    goto sub_tail;
 
   case 0x15U: /* ORI */
@@ -355,11 +351,12 @@ ld_tail:
    goto cy1_tail;
 
   case 0x25U: /* NEG */
-   dst   = 0x00U;
    src   = cpu_state.iors[arg1];
+   dst   = 0x00U;
+sub_tail:
    res   = dst - src;
    cpu_state.iors[arg1] = res;
-sub_tail:
+sub_tail_flg:
    cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
                                 cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst];
    goto cy1_tail;

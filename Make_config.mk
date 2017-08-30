@@ -62,7 +62,7 @@ CC_LIB=
 #
 # Version string to use.
 #
-VER_STRING=2017-08-25
+VER_STRING=2017-08-30
 #
 #
 # In case a test build (debug) is necessary, give 'test' here. It enables

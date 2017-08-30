@@ -1,7 +1,7 @@
 /*
  *  AVR flag generator
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -154,26 +154,31 @@
 void cu_avrfg_fill(uint8* ftable)
 {
  auint fl;
+ auint cy;
  auint src;
  auint dst;
  auint res;
  auint tmp;
 
- for (src = 0U; src <= 256U; src ++){
-  for (dst = 0U; dst < 256U; dst ++){
-   fl = 0U;
-   res = dst + src;
-   GENFLAGS_ADD(fl, dst, src, res, tmp);
-   ftable[CU_AVRFG_ADD + ((src << 8) + dst)] = fl;
+ for (cy = 0U; cy < 2U; cy ++){
+  for (src = 0U; src < 256U; src ++){
+   for (dst = 0U; dst < 256U; dst ++){
+    fl = 0U;
+    res = dst + (src + cy);
+    GENFLAGS_ADD(fl, dst, src, res, tmp);
+    ftable[CU_AVRFG_ADD + (cy << 16) + ((src << 8) + dst)] = fl;
+   }
   }
  }
 
- for (src = 0U; src <= 256U; src ++){
-  for (dst = 0U; dst < 256U; dst ++){
-   fl = 0U;
-   res = dst - src;
-   GENFLAGS_SUB(fl, dst, src, res, tmp);
-   ftable[CU_AVRFG_SUB + ((src << 8) + dst)] = fl;
+ for (cy = 0U; cy < 2U; cy ++){
+  for (src = 0U; src <= 256U; src ++){
+   for (dst = 0U; dst < 256U; dst ++){
+    fl = 0U;
+    res = dst - (src + cy);
+    GENFLAGS_SUB(fl, dst, src, res, tmp);
+    ftable[CU_AVRFG_SUB + (cy << 16) + ((src << 8) + dst)] = fl;
+   }
   }
  }
 
