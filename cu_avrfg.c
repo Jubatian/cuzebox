@@ -172,7 +172,7 @@ void cu_avrfg_fill(uint8* ftable)
  }
 
  for (cy = 0U; cy < 2U; cy ++){
-  for (src = 0U; src <= 256U; src ++){
+  for (src = 0U; src < 256U; src ++){
    for (dst = 0U; dst < 256U; dst ++){
     fl = 0U;
     res = dst - (src + cy);
