@@ -60,9 +60,9 @@ CC_INC=
 CC_LIB=
 #
 #
-# Version string to use.
+# Version number to use. It should be a BCD date of YYYYMMDD format.
 #
-VER_STRING=2017-08-30
+VER_DATE=0x20170830
 #
 #
 # In case a test build (debug) is necessary, give 'test' here. It enables

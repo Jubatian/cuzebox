@@ -82,18 +82,23 @@ static uint8 const textgui_bot[50U * 2U] = {
  'P', 'o', 'r', 't', '3', '9', ':', ' ', ' ', ' ',
  ' ', ';', ' ', '0', 'x', ' ', ' ', ';', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'b', ' ', ' ',
- ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
- 'W', 'D', 'R', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+ ' ', ' ', 'W', 'D', 'R', ' ', ' ', ' ', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ',
+ '0' + ((VER_DATE >> 28) & 0xFU),
+ '0' + ((VER_DATE >> 24) & 0xFU),
+ '0' + ((VER_DATE >> 20) & 0xFU),
+ '0' + ((VER_DATE >> 16) & 0xFU),
 
  'P', 'o', 'r', 't', '3', 'A', ':', ' ', ' ', ' ',
  ' ', ';', ' ', '0', 'x', ' ', ' ', ';', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'b', ' ', ' ',
  ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
- ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ',
+ '0' + ((VER_DATE >> 12) & 0xFU),
+ '0' + ((VER_DATE >>  8) & 0xFU),
+ '0' + ((VER_DATE >>  4) & 0xFU),
+ '0' + ((VER_DATE      ) & 0xFU)
 };
-
-/* Version string */
-static uint8 const textgui_ver[14U] = VER_STRING;
 
 /* Controller mappings */
 static uint8 const textgui_kbsnes[] = {'S', 'N', 'E', 'S', 0U};
@@ -298,13 +303,6 @@ void textgui_draw(boole nogrf)
   }
  }
 
- i = 0U;
- while (textgui_ver[i] != 0U){
-  textgui_putchar(TOP_X(13U + i), TOP_Y(0), textgui_ver[i], &rsnoprn);
-  i ++;
-  if (i >= sizeof(textgui_ver)){ break; }
- }
-
  /* Get speed percentage from CPU frequency (which should be 28636400Hz) */
 
  i = (textgui_elements.cpufreq + (286364U / 2U)) / 286364U;
@@ -375,17 +373,17 @@ void textgui_draw(boole nogrf)
 
  /* WDR interval debug counter */
 
- textgui_putdecx(BOT_X(44U), BOT_Y(0), textgui_elements.wdrint, &rsnoprn);
+ textgui_putdecx(BOT_X(36U), BOT_Y(0), textgui_elements.wdrint, &rsnoprn);
  t = textgui_elements.wdrbeg << 1;
- textgui_putchar(BOT_X(40U), BOT_Y(1), textgui_tohex(t >> 12), &rsnoprn);
- textgui_putchar(BOT_X(41U), BOT_Y(1), textgui_tohex(t >>  8), &rsnoprn);
- textgui_putchar(BOT_X(42U), BOT_Y(1), textgui_tohex(t >>  4), &rsnoprn);
- textgui_putchar(BOT_X(43U), BOT_Y(1), textgui_tohex(t >>  0), &rsnoprn);
+ textgui_putchar(BOT_X(32U), BOT_Y(1), textgui_tohex(t >> 12), &rsnoprn);
+ textgui_putchar(BOT_X(33U), BOT_Y(1), textgui_tohex(t >>  8), &rsnoprn);
+ textgui_putchar(BOT_X(34U), BOT_Y(1), textgui_tohex(t >>  4), &rsnoprn);
+ textgui_putchar(BOT_X(35U), BOT_Y(1), textgui_tohex(t >>  0), &rsnoprn);
  t = textgui_elements.wdrend << 1;
- textgui_putchar(BOT_X(46U), BOT_Y(1), textgui_tohex(t >> 12), &rsnoprn);
- textgui_putchar(BOT_X(47U), BOT_Y(1), textgui_tohex(t >>  8), &rsnoprn);
- textgui_putchar(BOT_X(48U), BOT_Y(1), textgui_tohex(t >>  4), &rsnoprn);
- textgui_putchar(BOT_X(49U), BOT_Y(1), textgui_tohex(t >>  0), &rsnoprn);
+ textgui_putchar(BOT_X(38U), BOT_Y(1), textgui_tohex(t >> 12), &rsnoprn);
+ textgui_putchar(BOT_X(39U), BOT_Y(1), textgui_tohex(t >>  8), &rsnoprn);
+ textgui_putchar(BOT_X(40U), BOT_Y(1), textgui_tohex(t >>  4), &rsnoprn);
+ textgui_putchar(BOT_X(41U), BOT_Y(1), textgui_tohex(t >>  0), &rsnoprn);
 
  if (prmsg){ conout_send(); }
 }

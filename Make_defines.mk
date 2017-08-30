@@ -126,7 +126,7 @@ OUT?=cuzebox
 CHCONV?=chconv
 BINCONV?=binconv
 CC=$(CCOMP)
-CFLAGS+= -DVER_STRING=\"$(VER_STRING)\"
+CFLAGS+= -DVER_DATE=$(VER_DATE)
 ifneq ($(ENABLE_VCAP),0)
 CFLAGS+= -DENABLE_VCAP=1
 endif

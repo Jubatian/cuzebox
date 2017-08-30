@@ -430,9 +430,7 @@ int main (int argc, char** argv)
 
 
  print_unf(main_title);
- print_unf(" ");
- print_unf(VER_STRING);
- print_unf("\n");
+ print_message(" %08X\n", VER_DATE);
 
 
  if (argc > 1){ game = argv[1]; }
