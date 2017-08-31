@@ -111,7 +111,7 @@ fmul_tail:
   case 0x07U: /* CPC */
    src   = cpu_state.iors[arg2];
    dst   = cpu_state.iors[arg1];
-   flags = cpu_state.iors[CU_IO_SREG];
+   res   = dst - (src + SREG_GET_C(cpu_state.iors[CU_IO_SREG]));
    goto sbc_tail_flg;
 
   case 0x08U: /* SBC */
@@ -122,10 +122,7 @@ fmul_tail:
    src   = cpu_state.iors[arg2];
    dst   = cpu_state.iors[arg1];
    res   = dst + src;
-   cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
-                                cpu_pflags[CU_AVRFG_ADD + (src << 8) + dst];
-   goto cy1_tail;
+   goto add_tail;
 
   case 0x0AU: /* CPSE */
    if (cpu_state.iors[arg1] != cpu_state.iors[arg2]){
@@ -136,6 +133,7 @@ fmul_tail:
   case 0x0BU: /* CP */
    src   = cpu_state.iors[arg2];
    dst   = cpu_state.iors[arg1];
+   res   = dst - src;
    goto sub_tail_flg;
 
   case 0x0CU: /* SUB */
@@ -146,11 +144,11 @@ fmul_tail:
   case 0x0DU: /* ADC */
    src   = cpu_state.iors[arg2];
    dst   = cpu_state.iors[arg1];
-   flags = cpu_state.iors[CU_IO_SREG];
-   res   = dst + (src + SREG_GET_C(flags));
+   res   = dst + (src + SREG_GET_C(cpu_state.iors[CU_IO_SREG]));
+add_tail:
    cpu_state.iors[arg1] = res;
-   cpu_state.iors[CU_IO_SREG] = (flags & (SREG_IM | SREG_TM)) |
-                                cpu_pflags[CU_AVRFG_ADD + (SREG_GET_C(flags) << 16) + (src << 8) + dst];
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
+                                cpu_pflags[CU_AVRFG_ADD + (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6)];
    goto cy1_tail;
 
   case 0x0EU: /* AND */
@@ -172,18 +170,19 @@ fmul_tail:
   case 0x12U: /* CPI */
    src   = arg2;
    dst   = cpu_state.iors[arg1];
+   res   = dst - src;
    goto sub_tail_flg;
 
   case 0x13U: /* SBCI */
    src   = arg2;
 sbc_tail:
    dst   = cpu_state.iors[arg1];
-   flags = cpu_state.iors[CU_IO_SREG];
-   res   = dst - (src + SREG_GET_C(flags));
+   res   = dst - (src + SREG_GET_C(cpu_state.iors[CU_IO_SREG]));
    cpu_state.iors[arg1] = res;
 sbc_tail_flg:
-   cpu_state.iors[CU_IO_SREG] = (flags | (SREG_NM | SREG_SM | SREG_HM | SREG_VM | SREG_CM)) &
-                                (cpu_pflags[CU_AVRFG_SUB + (SREG_GET_C(flags) << 16) + (src << 8) + dst] | (SREG_IM | SREG_TM));
+   cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] | (SREG_HM | SREG_SM | SREG_VM | SREG_NM | SREG_CM)) &
+                                ( (cpu_pflags[CU_AVRFG_SUB + (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6)]) |
+                                  (SREG_IM | SREG_TM) );
    goto cy1_tail;
 
   case 0x14U: /* SUBI */
@@ -358,7 +357,7 @@ sub_tail:
    cpu_state.iors[arg1] = res;
 sub_tail_flg:
    cpu_state.iors[CU_IO_SREG] = (cpu_state.iors[CU_IO_SREG] & (SREG_IM | SREG_TM)) |
-                                cpu_pflags[CU_AVRFG_SUB + (src << 8) + dst];
+                                cpu_pflags[CU_AVRFG_SUB + (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6)];
    goto cy1_tail;
 
   case 0x26U: /* SWAP */

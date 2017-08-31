@@ -160,13 +160,21 @@ void cu_avrfg_fill(uint8* ftable)
  auint res;
  auint tmp;
 
+ /*
+ ** Add / Sub flag generation:
+ **
+ ** table[((res & 0x1FFU)     ) |  <- -------X XXXXXXXX
+ **       ((src &  0x90U) << 5) |  <- ---X--X- --------
+ **       ((dst &  0x90U) << 6)]   <- --X--X-- --------
+ */
+
  for (cy = 0U; cy < 2U; cy ++){
   for (src = 0U; src < 256U; src ++){
    for (dst = 0U; dst < 256U; dst ++){
     fl = 0U;
     res = dst + (src + cy);
     GENFLAGS_ADD(fl, dst, src, res, tmp);
-    ftable[CU_AVRFG_ADD + (cy << 16) + ((src << 8) + dst)] = fl;
+    ftable[CU_AVRFG_ADD + (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6)] = fl;
    }
   }
  }
@@ -177,7 +185,7 @@ void cu_avrfg_fill(uint8* ftable)
     fl = 0U;
     res = dst - (src + cy);
     GENFLAGS_SUB(fl, dst, src, res, tmp);
-    ftable[CU_AVRFG_SUB + (cy << 16) + ((src << 8) + dst)] = fl;
+    ftable[CU_AVRFG_SUB + (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6)] = fl;
    }
   }
  }

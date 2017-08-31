@@ -35,21 +35,21 @@
 #include "cu_types.h"
 
 
-/* Position of ADD flags ((c << 16) + (src << 8) + dst) */
-#define CU_AVRFG_ADD  0x00000U
-/* Position of SUB flags ((c << 16) + (src << 8) + dst) */
-#define CU_AVRFG_SUB  0x20000U
+/* Position of ADD flags (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6) */
+#define CU_AVRFG_ADD  0x0000U
+/* Position of SUB flags (res & 0x1FFU) + ((src & 0x90U) << 5) + ((dst & 0x90U) << 6) */
+#define CU_AVRFG_SUB  0x4000U
 /* Position of SHR flags (((src & 1U) << 8) + res) */
-#define CU_AVRFG_SHR  0x40000U
+#define CU_AVRFG_SHR  0x8000U
 /* Position of LOG flags (res) */
-#define CU_AVRFG_LOG  0x40200U
+#define CU_AVRFG_LOG  0x8200U
 /* Position of INC flags (res) */
-#define CU_AVRFG_INC  0x40300U
+#define CU_AVRFG_INC  0x8300U
 /* Position of DEC flags (res) */
-#define CU_AVRFG_DEC  0x40400U
+#define CU_AVRFG_DEC  0x8400U
 
 /* Total size of flag precalc table */
-#define CU_AVRFG_SIZE 0x40500U
+#define CU_AVRFG_SIZE 0x8500U
 
 
 /*
