@@ -169,18 +169,23 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  }
 
  /* Produce a temporary increment to push the buffer's filledness towards
- ** the ideal point faster by a short term average */
+ ** the ideal point faster by a short term average. Too large buffers are
+ ** drained faster, possibly caused by event congestion (many events firing
+ ** at once such as after a load burst). */
 
  xinc = audio_inc;
  if (bras < AUDIO_FILL){
-  xinc -= (AUDIO_FILL - bras) >> 2;
+  xinc -= (AUDIO_FILL - bras) >> 3;
   if (bras < ((AUDIO_FILL * 7U) / 8U)){
-   xinc -= (((AUDIO_FILL * 7U) / 8U) - bras) << 2;
+   xinc -= (((AUDIO_FILL * 7U) / 8U) - bras) >> 1;
   }
  }else{
-  xinc += (bras - AUDIO_FILL) >> 2;
+  xinc += (bras - AUDIO_FILL) >> 3;
   if (bras > ((AUDIO_FILL * 9U) / 8U)){
-   xinc += (bras - ((AUDIO_FILL * 9U) / 8U)) << 2;
+   xinc += (bras - ((AUDIO_FILL * 9U) / 8U));
+  }
+  if (bras > ((AUDIO_FILL * 3U) / 2U)){
+   xinc += (bras - ((AUDIO_FILL * 3U) / 2U)) << 3;
   }
  }
 
