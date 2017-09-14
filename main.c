@@ -106,6 +106,14 @@ static boole main_ispause = FALSE;
 /* Whether a single frame advance was called (1 frame unpause) */
 static boole main_isadvfr = FALSE;
 
+#ifndef USE_SDL1
+/* Game controller objects */
+static SDL_GameController* main_gamectr[2] = {NULL, NULL};
+
+/* Event ID for each game controller */
+static auint main_gamectr_id[2] = {0U, 0U};
+#endif
+
 
 
 /*
@@ -181,6 +189,66 @@ static void main_setctr(SDL_Event const* ev)
   }
 
  }
+
+#ifndef USE_SDL1
+
+ /* If there are game controllers available, use those as well (for now 1
+ ** player only). Later the main_gamectr_id[] array may be used to identify
+ ** the controller ("which" member of the event structure). */
+
+ if ( ((ev->type) == SDL_CONTROLLERBUTTONDOWN) ||
+      ((ev->type) == SDL_CONTROLLERBUTTONUP) ){
+
+  if ((ev->type) == SDL_CONTROLLERBUTTONDOWN){ press = TRUE; }
+
+  switch (ev->cbutton.button){
+   case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LEFT, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RIGHT, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_DPAD_UP:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_UP, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_DOWN, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_Y:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_X:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_B:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_A:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_BACK:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_GUIDE:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_START:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_START, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LSH, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RSH, press);
+    break;
+   default:
+    break;
+  }
+
+ }
+
+#endif
+
 }
 
 
@@ -427,6 +495,12 @@ int main (int argc, char** argv)
  auint             flg;
  textgui_struct_t* tgui;
  boole             uzefile = FALSE;
+#ifndef USE_SDL1
+ SDL_Joystick*     jtmp;
+ auint             i;
+ auint             j;
+ const char*       cname;
+#endif
 
 
  print_unf(main_title);
@@ -465,6 +539,34 @@ int main (int argc, char** argv)
  (void)(audio_init());
 
 
+#ifndef USE_SDL1
+
+ /* Open game controller or controllers */
+
+ j = 0U;
+ for (i = 0U; i < SDL_NumJoysticks(); i++){
+  if (SDL_IsGameController(i)){
+   main_gamectr[j] = SDL_GameControllerOpen(i);
+   if (main_gamectr[j] != NULL){
+    jtmp = SDL_GameControllerGetJoystick(main_gamectr[j]);
+    if (jtmp != NULL){
+     main_gamectr_id[j] = SDL_JoystickInstanceID(jtmp);
+     j++;
+     cname = SDL_GameControllerName(main_gamectr[j]);
+     print_message("Game controller %u found", j);
+     if (cname != NULL){ print_message(": %s\n", cname); }
+     else              { print_unf    (".\n"); }
+     if (j >= 2U){ break; }
+    }else{
+     SDL_GameControllerClose(main_gamectr[j]);
+     main_gamectr[j] = NULL;
+    }
+   }
+  }
+ }
+#endif
+
+
  cu_avr_reset();
  main_t5_cc = cu_avr_getcycle();
  main_ptick = SDL_GetTicks();
@@ -488,6 +590,17 @@ int main (int argc, char** argv)
 
  ecpu = cu_avr_get_state();
  eepdump_save(&(ecpu->eepr[0]));
+
+#ifndef USE_SDL1
+
+ /* Close game controller or controllers */
+
+ for (j = 0U; j < 2U; j++){
+  if (main_gamectr[j] != NULL){
+   SDL_GameControllerClose(main_gamectr[j]);
+  }
+ }
+#endif
 
  audio_quit();
  guicore_quit();
