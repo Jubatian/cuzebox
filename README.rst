@@ -30,7 +30,7 @@ Controls
 ------------------------------------------------------------------------------
 
 
-Currently only Player 1's SNES controller is added, as follows:
+On the keybouard, you can control Player 1's SNES controller as follows:
 
 - Arrow keys: D-Pad
 - Q: Button Y
@@ -62,11 +62,11 @@ the mapping is useful on a QWERTZ keyboard). It is not recommended for
 developing games with complex controls since its layout differs much to the
 layout of the real controller.
 
-If you have two game controllers, the emulator will start with two player
-controller allocation (so one of the controllers belong to Player 1, the other
-to Player 2), otherwise it will start with one player (both the keyboard and a
-single game controller will belong to Player 1). The keyboard always belongs
-to Player 1.
+If you have two (physical) game controllers, the emulator will start with two
+player controller allocation (so one of the controllers belong to Player 1,
+the other to Player 2), otherwise it will start with one player (both the
+keyboard and a single game controller will belong to Player 1). The keyboard
+always belongs to Player 1.
 
 If you want to see how fast the AVR core can possibly run, turn off debug
 informations and use a small display while the frame rate limiter is off. On
@@ -86,19 +86,19 @@ Emulated components
 
 Currently the following features are implemented:
 
-- AVR core with cycle perfect emulation (except the SPM instruction).
+- AVR core with cycle perfect emulation.
 - Core AVR peripherals as necessary to run Uzebox games.
 - Sound and video output (frame rate synchronized to host if possible).
-- SNES controllers (only Player 1's controller is exposed).
+- SNES controllers (keyboard for Player 1, game controllers for both).
 - EEPROM including saving its contents alongside the emulated game.
 - SPM instruction and related elements necessary for bootloader emulation.
-- SD Card read and write (writing is untested).
+- SD Card read and write (writing didn't see much testing yet).
 - SPI RAM.
 
 Currently lacking but planned:
 
 - Emulator state saves (snapshots).
-- Mouse and keyboard controllers.
+- Mouse and keyboard controllers (Uzebox's SNES mouse and PS/2 keyboard).
 - Networking features as provided by the ESP8266 over the UART.
 
 Notes:
