@@ -60,7 +60,7 @@ static auint textgui_tim = 0U;
 static uint8 const textgui_top[50U * 3U] = {
  'C', 'U', 'z', 'e', 'B', 'o', 'x', ' ', ' ', ' ',
  ' ', '%', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
- ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+ ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'P', ' ',
   0U,  1U, ' ', ' ', ' ', ' ', ' ', ' ',  3U, ' ',
  11U, ' ', ' ', ' ', '.', ' ', ' ', ' ',  6U,  7U,
 
@@ -334,6 +334,16 @@ void textgui_draw(boole nogrf)
   if (prmsg){ conout_addstr("Keys: SNES "); }
  }
 
+ /* 1 player / 2 players */
+
+ if (textgui_elements.player2){
+  textgui_putchar(TOP_X(27U), TOP_Y(0U), '2', &rsnoprn);
+  if (prmsg){ conout_addstr("2P "); }
+ }else{
+  textgui_putchar(TOP_X(27U), TOP_Y(0U), '1', &rsnoprn);
+  if (prmsg){ conout_addstr("1P "); }
+ }
+
  /* Frame merging */
 
  if (textgui_elements.merge){
@@ -346,12 +356,12 @@ void textgui_draw(boole nogrf)
  /* Video capturing */
 
  if (textgui_elements.capture){
-  textgui_putchar(TOP_X(27U), TOP_Y(0U), 13U, &rsnoprn);
-  textgui_putchar(TOP_X(28U), TOP_Y(0U), 14U, &rsnoprn);
+  textgui_putchar(TOP_X(24U), TOP_Y(0U), 13U, &rsnoprn);
+  textgui_putchar(TOP_X(25U), TOP_Y(0U), 14U, &rsnoprn);
   if (prmsg){ conout_addstr("Capture "); }
  }else{
-  textgui_putchar(TOP_X(27U), TOP_Y(0U), ' ', &rsnoprn);
-  textgui_putchar(TOP_X(28U), TOP_Y(0U), ' ', &rsnoprn);
+  textgui_putchar(TOP_X(24U), TOP_Y(0U), ' ', &rsnoprn);
+  textgui_putchar(TOP_X(25U), TOP_Y(0U), ' ', &rsnoprn);
  }
 
  /* Game & Author name */

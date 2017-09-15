@@ -48,6 +48,7 @@ typedef struct{
  auint aufreq;          /* Audio frequency, Hz */
  auint dispfreq;        /* Display update frequency, 1/1000th Hz */
  boole kbuzem;          /* Keymap state, TRUE: Uzem controller keymapping */
+ boole player2;         /* 2 player control, TRUE: 2 player mode enabled */
  boole merge;           /* Frame merging state, TRUE: Frame merging active */
  boole capture;         /* Video capture, TRUE: Capture in progress */
  uint8 game[TEXTGUI_STR_MAX]; /* Game name */

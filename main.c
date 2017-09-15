@@ -34,6 +34,7 @@
 #include "filesys.h"
 #include "guicore.h"
 #include "audio.h"
+#include "ginput.h"
 #include "frame.h"
 #include "eepdump.h"
 #include "textgui.h"
@@ -79,9 +80,6 @@ static auint main_t5_cc;
 /* Request for discarding frame limitation */
 static boole main_nolimit = FALSE;
 
-/* Request Uzem style keymapping */
-static boole main_kbuzem = FALSE;
-
 /* Request frame merging (flicker reduction) */
 #ifdef FLAG_DISPLAY_FRAMEMERGE
 static boole main_fmerge = TRUE;
@@ -106,150 +104,7 @@ static boole main_ispause = FALSE;
 /* Whether a single frame advance was called (1 frame unpause) */
 static boole main_isadvfr = FALSE;
 
-#ifndef USE_SDL1
-/* Game controller objects */
-static SDL_GameController* main_gamectr[2] = {NULL, NULL};
 
-/* Event ID for each game controller */
-static auint main_gamectr_id[2] = {0U, 0U};
-#endif
-
-
-
-/*
-** Sets a controller button by SDL event
-*/
-static void main_setctr(SDL_Event const* ev)
-{
- boole press = FALSE;
-
- if ( ((ev->type) == SDL_KEYDOWN) ||
-      ((ev->type) == SDL_KEYUP) ){
-
-  if ((ev->type) == SDL_KEYDOWN){ press = TRUE; }
-
-  /* Note: For SDL2 the scancode has more sense here, but SDL1 does not
-  ** support that. This solution works for now on both. For the Uzem
-  ** keymapping both Y and Z triggers SNES_Y, so it remains useful on both a
-  ** QWERTY and a QWERTZ keyboard. */
-
-  switch (ev->key.keysym.sym){
-   case SDLK_LEFT:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LEFT, press);
-    break;
-   case SDLK_RIGHT:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RIGHT, press);
-    break;
-   case SDLK_UP:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_UP, press);
-    break;
-   case SDLK_DOWN:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_DOWN, press);
-    break;
-   case SDLK_q:
-    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press); }
-    break;
-   case SDLK_w:
-    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press); }
-    break;
-   case SDLK_a:
-    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press); }
-    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press); }
-    break;
-   case SDLK_s:
-    if (!main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press); }
-    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press); }
-    break;
-   case SDLK_y:
-    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press); }
-    break;
-   case SDLK_z:
-    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press); }
-    break;
-   case SDLK_x:
-    if ( main_kbuzem){ cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press); }
-    break;
-   case SDLK_SPACE:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
-    break;
-   case SDLK_TAB:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
-    break;
-   case SDLK_RETURN:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_START, press);
-    break;
-   case SDLK_LSHIFT:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LSH, press);
-    break;
-   case SDLK_RSHIFT:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RSH, press);
-    break;
-   default:
-    break;
-  }
-
- }
-
-#ifndef USE_SDL1
-
- /* If there are game controllers available, use those as well (for now 1
- ** player only). Later the main_gamectr_id[] array may be used to identify
- ** the controller ("which" member of the event structure). */
-
- if ( ((ev->type) == SDL_CONTROLLERBUTTONDOWN) ||
-      ((ev->type) == SDL_CONTROLLERBUTTONUP) ){
-
-  if ((ev->type) == SDL_CONTROLLERBUTTONDOWN){ press = TRUE; }
-
-  switch (ev->cbutton.button){
-   case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LEFT, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RIGHT, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_DPAD_UP:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_UP, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_DOWN, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_Y:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_Y, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_X:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_X, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_B:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_B, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_A:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_A, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_BACK:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_GUIDE:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_SELECT, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_START:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_START, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_LSH, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
-    cu_ctr_setsnes_single(0U, CU_CTR_SNES_RSH, press);
-    break;
-   default:
-    break;
-  }
-
- }
-
-#endif
-
-}
 
 
 
@@ -347,7 +202,8 @@ static void main_loop(void)
  tgui = textgui_getelementptr();
 
  tgui->merge   = main_fmerge;
- tgui->kbuzem  = main_kbuzem;
+ tgui->kbuzem  = ginput_iskbuzem();
+ tgui->player2 = ginput_is2palloc();
 #ifdef ENABLE_VCAP
  tgui->capture = main_isvcap;
 #else
@@ -380,7 +236,7 @@ static void main_loop(void)
 
  while (SDL_PollEvent(&sdlevent) != 0){
 
-  main_setctr(&sdlevent);
+  ginput_sendevent(&sdlevent);
 
   if (sdlevent.type == SDL_QUIT){ main_exit = TRUE; }
 
@@ -390,10 +246,6 @@ static void main_loop(void)
 
     case SDLK_ESCAPE:
      main_exit = TRUE;
-     break;
-
-    case SDLK_F11:
-     if (!guicore_init(guicore_getflags() ^ GUICORE_FULLSCREEN, main_title)){ main_exit = TRUE; }
      break;
 
     case SDLK_F2:
@@ -427,7 +279,7 @@ static void main_loop(void)
      break;
 
     case SDLK_F8:
-     main_kbuzem = !main_kbuzem;
+     ginput_setkbuzem(!ginput_iskbuzem());
      break;
 
     case SDLK_F9:
@@ -436,6 +288,14 @@ static void main_loop(void)
 
     case SDLK_F10:
      main_isadvfr = TRUE;
+     break;
+
+    case SDLK_F11:
+     if (!guicore_init(guicore_getflags() ^ GUICORE_FULLSCREEN, main_title)){ main_exit = TRUE; }
+     break;
+
+    case SDLK_F12:
+     ginput_set2palloc(!ginput_is2palloc());
      break;
 
     default:
@@ -495,12 +355,6 @@ int main (int argc, char** argv)
  auint             flg;
  textgui_struct_t* tgui;
  boole             uzefile = FALSE;
-#ifndef USE_SDL1
- SDL_Joystick*     jtmp;
- auint             i;
- auint             j;
- const char*       cname;
-#endif
 
 
  print_unf(main_title);
@@ -537,34 +391,7 @@ int main (int argc, char** argv)
   return 1;
  }
  (void)(audio_init());
-
-
-#ifndef USE_SDL1
-
- /* Open game controller or controllers */
-
- j = 0U;
- for (i = 0U; i < SDL_NumJoysticks(); i++){
-  if (SDL_IsGameController(i)){
-   main_gamectr[j] = SDL_GameControllerOpen(i);
-   if (main_gamectr[j] != NULL){
-    jtmp = SDL_GameControllerGetJoystick(main_gamectr[j]);
-    if (jtmp != NULL){
-     main_gamectr_id[j] = SDL_JoystickInstanceID(jtmp);
-     j++;
-     cname = SDL_GameControllerName(main_gamectr[j]);
-     print_message("Game controller %u found", j);
-     if (cname != NULL){ print_message(": %s\n", cname); }
-     else              { print_unf    (".\n"); }
-     if (j >= 2U){ break; }
-    }else{
-     SDL_GameControllerClose(main_gamectr[j]);
-     main_gamectr[j] = NULL;
-    }
-   }
-  }
- }
-#endif
+ (void)(ginput_init());
 
 
  cu_avr_reset();
@@ -591,17 +418,7 @@ int main (int argc, char** argv)
  ecpu = cu_avr_get_state();
  eepdump_save(&(ecpu->eepr[0]));
 
-#ifndef USE_SDL1
-
- /* Close game controller or controllers */
-
- for (j = 0U; j < 2U; j++){
-  if (main_gamectr[j] != NULL){
-   SDL_GameControllerClose(main_gamectr[j]);
-  }
- }
-#endif
-
+ ginput_quit();
  audio_quit();
  guicore_quit();
  filesys_flushall();

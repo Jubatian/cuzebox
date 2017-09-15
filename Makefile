@@ -56,6 +56,7 @@ endif
 OBJECTS += $(OBD)/eepdump.o
 OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
+OBJECTS += $(OBD)/ginput.o
 OBJECTS += $(OBD)/frame.o
 OBJECTS += $(OBD)/chars.o
 OBJECTS += $(OBD)/textgui.o
@@ -165,6 +166,9 @@ $(OBD)/guicore.o: guicore.c $(DEPS)
 
 $(OBD)/audio.o: audio.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
+
+$(OBD)/ginput.o: ginput.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
 
 $(OBD)/frame.o: frame.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)

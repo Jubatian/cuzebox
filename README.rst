@@ -54,12 +54,19 @@ The emulator itself can be controlled with the following keys:
 - F9: Pause / Unpause
 - F10: Advance a single frame
 - F11: Toggle full screen
+- F12: Toggle between 1 player and 2 player controller allocation
 
 The UZEM keymap maps the buttons of the SNES controller according to the Uzem
 emulator with the addition that 'Y' also triggers an SNES Y button press (so
 the mapping is useful on a QWERTZ keyboard). It is not recommended for
 developing games with complex controls since its layout differs much to the
 layout of the real controller.
+
+If you have two game controllers, the emulator will start with two player
+controller allocation (so one of the controllers belong to Player 1, the other
+to Player 2), otherwise it will start with one player (both the keyboard and a
+single game controller will belong to Player 1). The keyboard always belongs
+to Player 1.
 
 If you want to see how fast the AVR core can possibly run, turn off debug
 informations and use a small display while the frame rate limiter is off. On

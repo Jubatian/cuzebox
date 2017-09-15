@@ -62,7 +62,7 @@ CC_LIB=
 #
 # Version number to use. It should be a BCD date of YYYYMMDD format.
 #
-VER_DATE=0x20170914
+VER_DATE=0x20170915
 #
 #
 # In case a test build (debug) is necessary, give 'test' here. It enables
