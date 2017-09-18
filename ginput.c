@@ -342,7 +342,7 @@ void  ginput_sendevent(SDL_Event const* ev)
    cu_ctr_setsnes_single(player, CU_CTR_SNES_RIGHT, press);
   }
 
-  if ((ev->jaxis.axis) == 0U){ /* Y axis: Up and Down */
+  if ((ev->jaxis.axis) == 1U){ /* Y axis: Up and Down */
    press = ((ev->jaxis.value) <= -16384);
    cu_ctr_setsnes_single(player, CU_CTR_SNES_UP, press);
    press = ((ev->jaxis.value) >=  16384);
