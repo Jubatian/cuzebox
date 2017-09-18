@@ -46,10 +46,10 @@ static SDL_GameController* ginput_gamectr[2] = {NULL, NULL};
 static auint ginput_gamectr_id[2] = {0U, 0U};
 
 /* Directional moves collected from digital inputs */
-static boole ginput_gamectr_ddig[4] = {FALSE, FALSE, FALSE, FALSE};
+static boole ginput_gamectr_ddig[2][4];
 
 /* Directional moves collected from analog inputs */
-static boole ginput_gamectr_dana[4] = {FALSE, FALSE, FALSE, FALSE};
+static boole ginput_gamectr_dana[2][4];
 
 /* Controller name when no name string is available */
 static const char ginput_ctr_noname[] = "<no name>";
@@ -142,6 +142,13 @@ void  ginput_init(void)
 
 #ifndef USE_SDL1
 
+ for (j = 0U; j < 2U; j++){
+  for (i = 0U; i < 4U; i++){
+   ginput_gamectr_ddig[j][i] = FALSE;
+   ginput_gamectr_dana[j][i] = FALSE;
+  }
+ }
+
  /* Open game controller or controllers */
 
  j = 0U;
@@ -222,28 +229,28 @@ void  ginput_sendevent(SDL_Event const* ev)
   switch (ev->key.keysym.sym){
    case SDLK_LEFT:
 #ifndef USE_SDL1
-    ginput_gamectr_ddig[0] = press;
+    ginput_gamectr_ddig[player][0] = press;
 #else
     cu_ctr_setsnes_single(player, CU_CTR_SNES_LEFT, press);
 #endif
     break;
    case SDLK_RIGHT:
 #ifndef USE_SDL1
-    ginput_gamectr_ddig[1] = press;
+    ginput_gamectr_ddig[player][1] = press;
 #else
     cu_ctr_setsnes_single(player, CU_CTR_SNES_RIGHT, press);
 #endif
     break;
    case SDLK_UP:
 #ifndef USE_SDL1
-    ginput_gamectr_ddig[2] = press;
+    ginput_gamectr_ddig[player][2] = press;
 #else
     cu_ctr_setsnes_single(player, CU_CTR_SNES_UP, press);
 #endif
     break;
    case SDLK_DOWN:
 #ifndef USE_SDL1
-    ginput_gamectr_ddig[3] = press;
+    ginput_gamectr_ddig[player][3] = press;
 #else
     cu_ctr_setsnes_single(player, CU_CTR_SNES_DOWN, press);
 #endif
@@ -304,16 +311,16 @@ void  ginput_sendevent(SDL_Event const* ev)
 
   switch (ev->cbutton.button){
    case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-    ginput_gamectr_ddig[0] = press;
+    ginput_gamectr_ddig[player][0] = press;
     break;
    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-    ginput_gamectr_ddig[1] = press;
+    ginput_gamectr_ddig[player][1] = press;
     break;
    case SDL_CONTROLLER_BUTTON_DPAD_UP:
-    ginput_gamectr_ddig[2] = press;
+    ginput_gamectr_ddig[player][2] = press;
     break;
    case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-    ginput_gamectr_ddig[3] = press;
+    ginput_gamectr_ddig[player][3] = press;
     break;
    case SDL_CONTROLLER_BUTTON_Y: /* X-Y swapped due to SDL2 layout corresponding to XBox360 */
     cu_ctr_setsnes_single(player, CU_CTR_SNES_X, press);
@@ -359,24 +366,26 @@ void  ginput_sendevent(SDL_Event const* ev)
 
   if ((ev->jaxis.axis) == 0U){ /* X axis: Left and Right */
    press = ((ev->jaxis.value) <= -16384);
-   ginput_gamectr_dana[0] = press;
+   ginput_gamectr_dana[player][0] = press;
    press = ((ev->jaxis.value) >=  16384);
-   ginput_gamectr_dana[1] = press;
+   ginput_gamectr_dana[player][1] = press;
   }
 
   if ((ev->jaxis.axis) == 1U){ /* Y axis: Up and Down */
    press = ((ev->jaxis.value) <= -16384);
-   ginput_gamectr_dana[2] = press;
+   ginput_gamectr_dana[player][2] = press;
    press = ((ev->jaxis.value) >=  16384);
-   ginput_gamectr_dana[3] = press;
+   ginput_gamectr_dana[player][3] = press;
   }
 
  }
 
- cu_ctr_setsnes_single(player, CU_CTR_SNES_LEFT,  ginput_gamectr_ddig[0] || ginput_gamectr_dana[0]);
- cu_ctr_setsnes_single(player, CU_CTR_SNES_RIGHT, ginput_gamectr_ddig[1] || ginput_gamectr_dana[1]);
- cu_ctr_setsnes_single(player, CU_CTR_SNES_UP,    ginput_gamectr_ddig[2] || ginput_gamectr_dana[2]);
- cu_ctr_setsnes_single(player, CU_CTR_SNES_DOWN,  ginput_gamectr_ddig[3] || ginput_gamectr_dana[3]);
+ for (player = 0U; player < 2U; player ++){
+  cu_ctr_setsnes_single(player, CU_CTR_SNES_LEFT,  ginput_gamectr_ddig[player][0] || ginput_gamectr_dana[player][0]);
+  cu_ctr_setsnes_single(player, CU_CTR_SNES_RIGHT, ginput_gamectr_ddig[player][1] || ginput_gamectr_dana[player][1]);
+  cu_ctr_setsnes_single(player, CU_CTR_SNES_UP,    ginput_gamectr_ddig[player][2] || ginput_gamectr_dana[player][2]);
+  cu_ctr_setsnes_single(player, CU_CTR_SNES_DOWN,  ginput_gamectr_ddig[player][3] || ginput_gamectr_dana[player][3]);
+ }
 
 #endif
 
