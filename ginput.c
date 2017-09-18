@@ -75,10 +75,13 @@ static const char* ginput_gctr_name(auint i)
 */
 static auint ginput_gctr_getplayer(SDL_Event const* ev)
 {
+ SDL_JoystickID jid;
  if (!ginput_2palloc){ return 0U; }
  if (ginput_gamectr[1] == NULL){ return 1U; }
- if ( (ev->cbutton.which) != (ginput_gamectr_id[0]) &&
-      (ev->cbutton.which) == (ginput_gamectr_id[1]) ){ return 1U; }
+ if (ev->type == SDL_JOYAXISMOTION){ jid = ev->jaxis.which; }
+ else                              { jid = ev->cbutton.which; }
+ if ( jid != (ginput_gamectr_id[0]) &&
+      jid == (ginput_gamectr_id[1]) ){ return 1U; }
  return 0U;
 }
 
@@ -290,17 +293,17 @@ void  ginput_sendevent(SDL_Event const* ev)
    case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
     cu_ctr_setsnes_single(player, CU_CTR_SNES_DOWN, press);
     break;
-   case SDL_CONTROLLER_BUTTON_Y:
-    cu_ctr_setsnes_single(player, CU_CTR_SNES_Y, press);
-    break;
-   case SDL_CONTROLLER_BUTTON_X:
+   case SDL_CONTROLLER_BUTTON_Y: /* X-Y swapped due to SDL2 layout corresponding to XBox360 */
     cu_ctr_setsnes_single(player, CU_CTR_SNES_X, press);
     break;
-   case SDL_CONTROLLER_BUTTON_B:
-    cu_ctr_setsnes_single(player, CU_CTR_SNES_B, press);
+   case SDL_CONTROLLER_BUTTON_X: /* X-Y swapped due to SDL2 layout corresponding to XBox360 */
+    cu_ctr_setsnes_single(player, CU_CTR_SNES_Y, press);
     break;
-   case SDL_CONTROLLER_BUTTON_A:
+   case SDL_CONTROLLER_BUTTON_B: /* A-B swapped due to SDL2 layout corresponding to XBox360 */
     cu_ctr_setsnes_single(player, CU_CTR_SNES_A, press);
+    break;
+   case SDL_CONTROLLER_BUTTON_A: /* A-B swapped due to SDL2 layout corresponding to XBox360 */
+    cu_ctr_setsnes_single(player, CU_CTR_SNES_B, press);
     break;
    case SDL_CONTROLLER_BUTTON_BACK:
     cu_ctr_setsnes_single(player, CU_CTR_SNES_SELECT, press);
@@ -319,6 +322,31 @@ void  ginput_sendevent(SDL_Event const* ev)
     break;
    default:
     break;
+  }
+
+ }
+
+ /* Joystick axis input. This complements controller input, necessary due to
+ ** the poor API not being able to handle game controllers properly. If SDL2
+ ** will be fixed at some point in the future, this may be removed (along with
+ ** related patch in ginput_gctr_getplayer()). */
+
+ if ( ((ev->type) == SDL_JOYAXISMOTION) ){
+
+  player = ginput_gctr_getplayer(ev);
+
+  if ((ev->jaxis.axis) == 0U){ /* X axis: Left and Right */
+   press = ((ev->jaxis.value) <= -16384);
+   cu_ctr_setsnes_single(player, CU_CTR_SNES_LEFT, press);
+   press = ((ev->jaxis.value) >=  16384);
+   cu_ctr_setsnes_single(player, CU_CTR_SNES_RIGHT, press);
+  }
+
+  if ((ev->jaxis.axis) == 0U){ /* Y axis: Up and Down */
+   press = ((ev->jaxis.value) <= -16384);
+   cu_ctr_setsnes_single(player, CU_CTR_SNES_UP, press);
+   press = ((ev->jaxis.value) >=  16384);
+   cu_ctr_setsnes_single(player, CU_CTR_SNES_DOWN, press);
   }
 
  }
