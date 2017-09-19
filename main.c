@@ -448,6 +448,7 @@ int main (int argc, char** argv)
 #ifdef ENABLE_VCAP
  avconv_finalize();
 #endif
+ exit(0);
 #endif
 
  return 0;
