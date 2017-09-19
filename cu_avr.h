@@ -38,9 +38,11 @@
 /*
 ** Resets the CPU as if it was power-cycled. It properly initializes
 ** everything from the state as if cu_avr_crom_update() and cu_avr_io_update()
-** was called.
+** was called. The bootpri flag requests prioritizing the bootloader when set
+** TRUE, otherwise game is prioritized (used when both a game and a bootloader
+** appears to be present in the ROM).
 */
-void  cu_avr_reset(void);
+void  cu_avr_reset(boole bootpri);
 
 
 /*
@@ -92,9 +94,19 @@ uint8* cu_avr_get_ioinfo(void);
 /*
 ** Returns whether the EEPROM changed since the last clear of this indicator.
 ** Calling cu_avr_io_update() clears this indicator (as well as resetting by
-** cu_avr_reset()). Passing TRUE also clears it.
+** cu_avr_reset()). Passing TRUE also clears it. This can be used to save
+** EEPROM state to persistent storage when it changes.
 */
 boole cu_avr_eeprom_ischanged(boole clear);
+
+
+/*
+** Returns whether the Code ROM changed since the last clear of this
+** indicator. Calling cu_avr_io_update() clears this indicator (as well as
+** resetting by cu_avr_reset()). Passing TRUE also clears it. This can be used
+** to save Code ROM state to persistent storage when it changes.
+*/
+boole cu_avr_crom_ischanged(boole clear);
 
 
 /*

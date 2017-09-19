@@ -222,7 +222,6 @@ log_tail:
           (WRAP32(cpu_state.spm_end - cpu_state.cycle)) ){
       cycle_next_event = cpu_state.spm_end; /* Set SPM HW processing target */
      }
-     cpu_state.crom_mod = TRUE;             /* Code ROM modified */
     }else if (cpu_state.spm_mode == 0x08U){ /* Boot lock bit set (unimplemented) */
      cpu_state.iors[CU_IO_SPMCSR] &= 0xE0U;
     }else if (cpu_state.spm_mode == 0x10U){ /* RWW section read enable */

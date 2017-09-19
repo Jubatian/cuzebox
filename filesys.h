@@ -1,7 +1,7 @@
 /*
  *  Filesystem interface layer
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -52,8 +52,8 @@
 #define FILESYS_CH_SD      0U
 /* Various emulator one-shot tasks (such as game loading) */
 #define FILESYS_CH_EMU     1U
-/* EEPROM dumps */
-#define FILESYS_CH_EEP     2U
+/* EEPROM & Code ROM dumps */
+#define FILESYS_CH_ROM     2U
 
 /* Number of filesystem channels (must be one larger than the largest entry
 ** of the list above) */

@@ -1,7 +1,7 @@
 /*
- *  Hex file parser
+ *  Code ROM dump functions
  *
- *  Copyright (C) 2016 - 2017
+ *  Copyright (C) 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -27,8 +27,8 @@
 
 
 
-#ifndef CU_HFILE_H
-#define CU_HFILE_H
+#ifndef ROMDUMP_H
+#define ROMDUMP_H
 
 
 
@@ -37,15 +37,24 @@
 
 
 /*
-** Attempts to load the passed file into code memory. The code memory is not
-** cleared, so bootloader image or other contents may be added before this if
-** there are any.
-**
-** The code memory must be 64 KBytes.
-**
-** Returns TRUE if the loading was successful.
+** Note: Should be handled along with eepdump.h & c, adding further
+** functionality there should be mirrored here (paths etc.).
 */
-boole cu_hfile_load(char const* fname, uint8* cmem);
+
+
+
+/*
+** Tries to load Code ROM state from a rom dump. If the Code ROM dump does not
+** exist, it clears the Code ROM. Returns TRUE if a Code ROM dump existed.
+*/
+boole romdump_load(uint8* crom);
+
+
+/*
+** Tries to write out Code ROM state into a rom dump. It fails silently if
+** this is not possible.
+*/
+void romdump_save(uint8 const* crom);
 
 
 #endif

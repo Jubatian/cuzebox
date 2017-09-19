@@ -16,6 +16,7 @@
 /gamefile.c
 # If the program created various files, ignore those too
 /eeprom.bin
+/coderom.bin
 /capture.mp4
 # If for a Windows build an SDL2 development library is supplied locally, skip that
 /SDL2*

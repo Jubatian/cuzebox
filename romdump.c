@@ -1,7 +1,7 @@
 /*
- *  EEPROM dump functions
+ *  Code ROM dump functions
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -32,44 +32,47 @@
 
 
 
-/* EEPROM dump file */
-static const char eepdump_file[] = "eeprom.bin";
+/* Code ROM dump file */
+static const char romdump_file[] = "coderom.bin";
 
 
 
 /*
-** Tries to load EEPROM state from an eeprom dump. If the EEPROM dump does not
-** exist, it clears the EEPROM.
+** Tries to load Code ROM state from a rom dump. If the Code ROM dump does not
+** exist, it clears the Code ROM. Returns TRUE if a Code ROM dump existed.
 */
-void eepdump_load(uint8* eeprom)
+boole romdump_load(uint8* crom)
 {
  auint rv;
 
- if (!filesys_open(FILESYS_CH_ROM, eepdump_file)){ goto ex_fail; }
+ if (!filesys_open(FILESYS_CH_ROM, romdump_file)){ goto ex_fail; }
 
- rv = filesys_read(FILESYS_CH_ROM, eeprom, 2048U);
- if (rv != 2048){ goto ex_fail; }
+ rv = filesys_read(FILESYS_CH_ROM, crom, 65536U);
+ if (rv != 65536U){ goto ex_fail; }
 
  filesys_flush(FILESYS_CH_ROM);
- return;
+ return TRUE;
 
 ex_fail:
  filesys_flush(FILESYS_CH_ROM);
- memset(eeprom, 0xFFU, 2048U);
- return;
+ /* Initialize ROM to zero (NOP). Using zero (a valid NOP) is important as
+ ** this is used to check the presence of a valid bootloader at reset (auto
+ ** fusing the emulated AVR's boot setup to game / bootloader). */
+ memset(crom, 0x00U, 65536U);
+ return FALSE;
 }
 
 
 
 /*
-** Tries to write out EEPROM state into an eeprom dump. It fails silently if
+** Tries to write out Code ROM state into a rom dump. It fails silently if
 ** this is not possible.
 */
-void eepdump_save(uint8 const* eeprom)
+void romdump_save(uint8 const* crom)
 {
- (void)(filesys_open(FILESYS_CH_ROM, eepdump_file));   /* Might fail since tries to open for reading */
+ (void)(filesys_open(FILESYS_CH_ROM, romdump_file));  /* Might fail since tries to open for reading */
 
- (void)(filesys_write(FILESYS_CH_ROM, eeprom, 2048U)); /* Don't care for faults (can't do anything about them) */
+ (void)(filesys_write(FILESYS_CH_ROM, crom, 65536U)); /* Don't care for faults (can't do anything about them) */
 
  filesys_flush(FILESYS_CH_ROM);
  return;

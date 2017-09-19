@@ -1,7 +1,7 @@
 /*
  *  UzeRom file parser
  *
- *  Copyright (C) 2016
+ *  Copyright (C) 2016 - 2017
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -46,7 +46,8 @@ static const char cu_war[] = "Warning: ";
 
 /*
 ** Attempts to load the passed file into code memory. The code memory is not
-** cleared, so bootloader image may be added before this if there is any.
+** cleared, so bootloader image or other contents may be added before this if
+** there are any.
 **
 ** The code memory must be 64 KBytes.
 **

@@ -104,8 +104,11 @@ boole           event_it_enter;
 /* Vector to call when entering interrupt */
 auint           event_it_vect;
 
-/* EEPROM change indicator */
+/* EEPROM change indicator for saves to persistent storage */
 boole           eeprom_changed;
+
+/* Code ROM change indicator for saves to persistent storage */
+boole           crom_changed;
 
 /* Watchdog-based debug counter: Time of last WDR execution */
 auint           wd_last;
@@ -916,11 +919,15 @@ static auint cu_avr_read_io(auint port)
 /*
 ** Resets the CPU as if it was power-cycled. It properly initializes
 ** everything from the state as if cu_avr_crom_update() and cu_avr_io_update()
-** was called.
+** was called. The bootpri flag requests prioritizing the bootloader when set
+** TRUE, otherwise game is prioritized (used when both a game and a bootloader
+** appears to be present in the ROM).
 */
-void  cu_avr_reset(void)
+void  cu_avr_reset(boole bootpri)
 {
  auint i;
+ boole hasgame;
+ boole hasboot;
 
  for (i = 0U; i < 4096U; i++){
   access_mem[i] = 0U;
@@ -947,12 +954,16 @@ void  cu_avr_reset(void)
 
  cpu_state.latch = 0U;
 
- /* Check whether something is loaded. Normally the AVR is fused to use the
- ** boot loader, so if anything is present there, use that. If there is no
- ** boot loader (only an application is loaded), boot that instead. */
+ /* Determine boot fuses according to the contents of the ROM and the boot
+ ** prioritization parameter. The boot loader is used when it exists and it
+ ** is prioritized or when it looks like there is no game in the Code ROM. */
 
- if ( (cpu_state.crom[(VBASE_BOOT * 2U) + 0U] != 0U) ||
-      (cpu_state.crom[(VBASE_BOOT * 2U) + 1U] != 0U) ){ cpu_state.iors[CU_IO_MCUCR] |= 2U; }
+ hasgame = (cpu_state.crom[                    0U] != 0U) ||
+           (cpu_state.crom[                    1U] != 0U);
+ hasboot = (cpu_state.crom[(VBASE_BOOT * 2U) + 0U] != 0U) ||
+           (cpu_state.crom[(VBASE_BOOT * 2U) + 1U] != 0U);
+ if ( (hasboot && bootpri) ||
+      (!hasgame) ){ cpu_state.iors[CU_IO_MCUCR] |= 2U; }
 
  cpu_state.pc = (((cpu_state.iors[CU_IO_MCUCR] >> 1) & 1U) * VBASE_BOOT) + VECT_RESET;
 
@@ -1116,12 +1127,27 @@ uint8* cu_avr_get_ioinfo(void)
 /*
 ** Returns whether the EEPROM changed since the last clear of this indicator.
 ** Calling cu_avr_io_update() clears this indicator (as well as resetting by
-** cu_avr_reset()). Passing TRUE also clears it.
+** cu_avr_reset()). Passing TRUE also clears it. This can be used to save
+** EEPROM state to persistent storage when it changes.
 */
 boole cu_avr_eeprom_ischanged(boole clear)
 {
  boole ret = eeprom_changed;
  if (clear){ eeprom_changed = FALSE; }
+ return ret;
+}
+
+
+/*
+** Returns whether the Code ROM changed since the last clear of this
+** indicator. Calling cu_avr_io_update() clears this indicator (as well as
+** resetting by cu_avr_reset()). Passing TRUE also clears it. This can be used
+** to save Code ROM state to persistent storage when it changes.
+*/
+boole cu_avr_crom_ischanged(boole clear)
+{
+ boole ret = crom_changed;
+ if (clear){ crom_changed = FALSE; }
  return ret;
 }
 
@@ -1179,6 +1205,7 @@ void  cu_avr_crom_update(auint base, auint len)
  }
 
  cpu_state.crom_mod = TRUE;
+ crom_changed = TRUE;
 }
 
 
@@ -1194,6 +1221,7 @@ void  cu_avr_io_update(void)
  auint t0;
 
  eeprom_changed = FALSE;
+ crom_changed   = FALSE;
 
  t0    = (cpu_state.iors[CU_IO_TCNT1H] << 8) |
          (cpu_state.iors[CU_IO_TCNT1L]     );

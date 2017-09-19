@@ -54,6 +54,7 @@ OBJECTS += $(OBD)/cu_spisd.o
 OBJECTS += $(OBD)/filesys.o
 endif
 OBJECTS += $(OBD)/eepdump.o
+OBJECTS += $(OBD)/romdump.o
 OBJECTS += $(OBD)/guicore.o
 OBJECTS += $(OBD)/audio.o
 OBJECTS += $(OBD)/ginput.o
@@ -174,6 +175,9 @@ $(OBD)/frame.o: frame.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSPD)
 
 $(OBD)/eepdump.o: eepdump.c $(DEPS)
+	$(CC) -c $< -o $@ $(CFSIZ)
+
+$(OBD)/romdump.o: romdump.c $(DEPS)
 	$(CC) -c $< -o $@ $(CFSIZ)
 
 $(OBD)/avconv.o: avconv.c $(DEPS)

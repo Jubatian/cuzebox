@@ -37,6 +37,7 @@
 #include "ginput.h"
 #include "frame.h"
 #include "eepdump.h"
+#include "romdump.h"
 #include "textgui.h"
 #ifdef ENABLE_VCAP
 #include "avconv.h"
@@ -90,6 +91,9 @@ static boole main_fmerge = FALSE;
 /* Previous state of EEPROM changes to save only after a write burst was completed */
 static boole main_peepch = FALSE;
 
+/* Previous state of Code ROM changes to save only after a write burst was completed */
+static boole main_promch = FALSE;
+
 /* Default game to start without parameters */
 static const char* main_game = "gamefile.uze";
 
@@ -124,6 +128,7 @@ static void main_loop(void)
  auint afreq;
  boole fdrop = FALSE;
  boole eepch;
+ boole romch;
  SDL_Event sdlevent;
  cu_state_cpu_t* ecpu;
  textgui_struct_t* tgui;
@@ -184,15 +189,23 @@ static void main_loop(void)
   }else{}
  }
 
- /* Check for EEPROM changes and save as needed */
+ /* Check for EEPROM & Code ROM changes and save as needed */
 
  ecpu = cu_avr_get_state(); /* Also needed by emulator whisper ports */
+
  eepch = cu_avr_eeprom_ischanged(TRUE);
  if ( (main_peepch) &&
       (!eepch) ){ /* End of EEPROM write burst */
   eepdump_save(&(ecpu->eepr[0]));
  }
  main_peepch = eepch;
+
+ romch = cu_avr_crom_ischanged(TRUE);
+ if ( (main_promch) &&
+      (!romch) ){ /* End of Code ROM write burst */
+  romdump_save(&(ecpu->crom[0]));
+ }
+ main_promch = romch;
 
  /* Generate various emulator info for the GUI */
 
@@ -355,6 +368,8 @@ int main (int argc, char** argv)
  auint             flg;
  textgui_struct_t* tgui;
  boole             uzefile = FALSE;
+ boole             hasrom;
+ boole             bootpri = FALSE;
 
 
  print_unf(main_title);
@@ -365,12 +380,19 @@ int main (int argc, char** argv)
  filesys_setpath(game, &(tstr[0]), 100U); /* Locate everything beside the game */
 
  ecpu = cu_avr_get_state();
+ hasrom = romdump_load(&(ecpu->crom[0]));
  eepdump_load(&(ecpu->eepr[0]));
 
  uzefile = cu_ufile_load(&(tstr[0]), &(ecpu->crom[0]), &ufhead);
  if (!uzefile){
+  /* Boot loader prioritized when loading a .HEX file. This will result in the
+  ** boot loader starting when explicitly using a bootloader .HEX file, but
+  ** also in any other cases if a bootloader can be found either in restored
+  ** ROM or the .HEX file (so after using a bootloader, to load .HEX file
+  ** games, it is necessary to delete the ROM dump). */
+  bootpri = TRUE;
   if (!cu_hfile_load(&(tstr[0]), &(ecpu->crom[0]))){
-   return 1;
+   if (!hasrom){ return 1; }
   }
  }
 
@@ -394,7 +416,7 @@ int main (int argc, char** argv)
  (void)(ginput_init());
 
 
- cu_avr_reset();
+ cu_avr_reset(bootpri);
  main_t5_cc = cu_avr_getcycle();
  main_ptick = SDL_GetTicks();
  audio_reset();
@@ -416,7 +438,8 @@ int main (int argc, char** argv)
  while (!main_exit){ main_loop(); }
 
  ecpu = cu_avr_get_state();
- eepdump_save(&(ecpu->eepr[0]));
+ if ( (main_promch) || (cu_avr_crom_ischanged  (TRUE)) ){ romdump_save(&(ecpu->crom[0])); }
+ if ( (main_peepch) || (cu_avr_eeprom_ischanged(TRUE)) ){ eepdump_save(&(ecpu->eepr[0])); }
 
  ginput_quit();
  audio_quit();
