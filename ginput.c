@@ -53,6 +53,9 @@ static boole ginput_gamectr_dana[2][4];
 
 /* Controller name when no name string is available */
 static const char ginput_ctr_noname[] = "<no name>";
+
+/* Game controller DB filename */
+static const char ginput_gctr_filename[] = "gamecontrollerdb.txt";
 #endif
 
 
@@ -124,6 +127,18 @@ static void ginput_gctr_printalloc(void)
  }
 }
 
+
+/*
+** Loads game controller config. from path along with reporting it
+*/
+static void ginput_gctr_loadmappings(char const* path)
+{
+ asint n = SDL_GameControllerAddMappingsFromFile(path);
+ print_message("Load game controller mappings:\n    %s\n    ", path);
+ if (n < 0){ print_unf("could not open\n"); }
+ else{       print_message("contained %i entries\n", n); }
+}
+
 #endif
 
 
@@ -135,9 +150,11 @@ static void ginput_gctr_printalloc(void)
 void  ginput_init(void)
 {
 #ifndef USE_SDL1
- auint i;
- auint j;
+ auint         i;
+ auint         j;
  SDL_Joystick* jtmp;
+ char          sbuf[1024];
+ char*         bpat;
 #endif
 
 #ifndef USE_SDL1
@@ -148,6 +165,31 @@ void  ginput_init(void)
    ginput_gamectr_dana[j][i] = FALSE;
   }
  }
+
+ /* Load game controller mappings (if such a file is present) */
+
+ bpat = SDL_GetBasePath();
+ i = 0U;
+ if (bpat != NULL){
+  while (bpat[i] != 0){
+   sbuf[i] = bpat[i];
+   i++;
+   if (i == 1023U){ break; }
+  }
+  SDL_free(bpat);
+ }
+ j = 0U;
+ while (ginput_gctr_filename[j] != 0){
+  if (i == 1023U){ break; }
+  sbuf[i] = ginput_gctr_filename[j];
+  i++;
+  j++;
+ }
+ sbuf[i] = 0;
+ ginput_gctr_loadmappings(&(sbuf[0]));
+#ifdef PATH_GAMECONTROLLERDB
+ ginput_gctr_loadmappings(PATH_GAMECONTROLLERDB);
+#endif
 
  /* Open game controller or controllers */
 

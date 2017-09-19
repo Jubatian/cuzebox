@@ -72,6 +72,19 @@ VER_DATE=0x20170919
 GO=
 #
 #
+# An extra path to game controller config files for SDL2 builds. By default
+# the emulator looks for such a file (gamecontrollerdb.txt) on the SDL app
+# path (if there is any), you can supply an additional path here. You can get
+# such a file from https://github.com/gabomdq/SDL_GameControllerDB , such a
+# file may also be present on your system as part of some other application
+# (for example gnome-games uses ~/.config/gnome-games/gamecontrollerdb.txt,
+# the code won't recognize "~" though). You may provide that location here to
+# "leech" that config, so CUzeBox's controller mappings update when you update
+# that application.
+#
+PATH_GAMECONTROLLERDB=
+#
+#
 # Should the video capture feature be built in? Note that it requires ffmpeg
 # and it is not possible to have it in the Emscripten build.
 #
