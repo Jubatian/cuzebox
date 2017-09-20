@@ -142,6 +142,14 @@ static void main_loop(void)
  else{                  drift += 17U; }
  drift -= tdif;
 
+ /* Check for possible total CPU starvation. When such a situation arises (a
+ ** huge difference in prev. and current tick), throw drift away. */
+
+ if (tdif > 100U){
+  drift = 0U;
+  tdif  = 16U;
+ }
+
  /* Handle divergences */
 
  if (drift >= 0x80000000U){   /* Possibly too slow */
