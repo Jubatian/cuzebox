@@ -103,6 +103,7 @@ typedef struct{
  uint8 eepr[2048];    /* EEPROM */
  uint8 iors[256];     /* IO Registers (including general purpose regs) */
  uint8 sbuf[256];     /* SPM page buffer */
+ uint8 fuse[4];       /* Fuse bytes (Low, High, Extended) */
  auint pc;            /* Program Counter */
  auint latch;         /* 16 bit I/O register high latch */
  auint cycle;         /* Current cycle (32 bits wrapping, used for timing) */

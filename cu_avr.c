@@ -917,17 +917,46 @@ static auint cu_avr_read_io(auint port)
 
 
 /*
-** Resets the CPU as if it was power-cycled. It properly initializes
-** everything from the state as if cu_avr_crom_update() and cu_avr_io_update()
-** was called. The bootpri flag requests prioritizing the bootloader when set
-** TRUE, otherwise game is prioritized (used when both a game and a bootloader
-** appears to be present in the ROM).
+** Auto-fuses the CPU based on ROM contents and boot priority. The bootpri
+** flag requests prioritizing the bootloader when set TRUE, otherwise game is
+** prioritized (used when both a game and a bootloader appears to be present
+** in the ROM). This should be called before reset unless the CPU state is
+** already loaded (which includes fuse bits).
 */
-void  cu_avr_reset(boole bootpri)
+void  cu_avr_autofuse(boole bootpri)
 {
- auint i;
  boole hasgame;
  boole hasboot;
+
+ /* Default fuse settings are according to Uzebox */
+ /* (For now, only the BOOTRST fuse is actually used) */
+
+ cpu_state.fuse[0] = 0xD7U; /* CLKSEL = 0111; SUT = 01; CKOUT = 1; CKDIV = 1 */
+ cpu_state.fuse[1] = 0xD2U; /* BOOTRST = 0; BOOTSZ = 01; EESAVE = 0; WDTON = 1; SPIEN = 0; JTAGEN = 1; OCDEN = 1 */
+ cpu_state.fuse[2] = 0xFFU; /* BODLEVEL = 111 */
+
+ /* Determine boot fuses according to the contents of the ROM and the boot
+ ** prioritization parameter. The boot loader is used when it exists and it
+ ** is prioritized or when it looks like there is no game in the Code ROM. */
+
+ hasgame = (cpu_state.crom[                    0U] != 0U) ||
+           (cpu_state.crom[                    1U] != 0U);
+ hasboot = (cpu_state.crom[(VBASE_BOOT * 2U) + 0U] != 0U) ||
+           (cpu_state.crom[(VBASE_BOOT * 2U) + 1U] != 0U);
+ if ( (!(hasboot && bootpri)) &&
+      (hasgame) ){ cpu_state.fuse[1] |= 0x01U; } /* Turn off bootloader */
+}
+
+
+
+/*
+** Resets the CPU as if it was power-cycled. It properly initializes
+** everything from the state as if cu_avr_crom_update() and cu_avr_io_update()
+** was called.
+*/
+void  cu_avr_reset(void)
+{
+ auint i;
 
  for (i = 0U; i < 4096U; i++){
   access_mem[i] = 0U;
@@ -954,18 +983,7 @@ void  cu_avr_reset(boole bootpri)
 
  cpu_state.latch = 0U;
 
- /* Determine boot fuses according to the contents of the ROM and the boot
- ** prioritization parameter. The boot loader is used when it exists and it
- ** is prioritized or when it looks like there is no game in the Code ROM. */
-
- hasgame = (cpu_state.crom[                    0U] != 0U) ||
-           (cpu_state.crom[                    1U] != 0U);
- hasboot = (cpu_state.crom[(VBASE_BOOT * 2U) + 0U] != 0U) ||
-           (cpu_state.crom[(VBASE_BOOT * 2U) + 1U] != 0U);
- if ( (hasboot && bootpri) ||
-      (!hasgame) ){ cpu_state.iors[CU_IO_MCUCR] |= 2U; }
-
- cpu_state.pc = (((cpu_state.iors[CU_IO_MCUCR] >> 1) & 1U) * VBASE_BOOT) + VECT_RESET;
+ cpu_state.pc = (((cpu_state.fuse[1] & 1U) ^ 1U) * VBASE_BOOT) + VECT_RESET;
 
  cpu_state.cycle    = 0U;
  video_pulsectr     = 0U;

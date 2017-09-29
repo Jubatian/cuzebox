@@ -36,13 +36,21 @@
 
 
 /*
+** Auto-fuses the CPU based on ROM contents and boot priority. The bootpri
+** flag requests prioritizing the bootloader when set TRUE, otherwise game is
+** prioritized (used when both a game and a bootloader appears to be present
+** in the ROM). This should be called before reset unless the CPU state is
+** already loaded (which includes fuse bits).
+*/
+void  cu_avr_autofuse(boole bootpri);
+
+
+/*
 ** Resets the CPU as if it was power-cycled. It properly initializes
 ** everything from the state as if cu_avr_crom_update() and cu_avr_io_update()
-** was called. The bootpri flag requests prioritizing the bootloader when set
-** TRUE, otherwise game is prioritized (used when both a game and a bootloader
-** appears to be present in the ROM).
+** was called.
 */
-void  cu_avr_reset(boole bootpri);
+void  cu_avr_reset(void);
 
 
 /*

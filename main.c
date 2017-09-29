@@ -424,7 +424,8 @@ int main (int argc, char** argv)
  (void)(ginput_init());
 
 
- cu_avr_reset(bootpri);
+ cu_avr_autofuse(bootpri);
+ cu_avr_reset();
  main_t5_cc = cu_avr_getcycle();
  audio_reset();
  textgui_reset();
