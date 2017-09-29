@@ -260,6 +260,34 @@ static auint cu_avr_getwdto(void)
 
 
 /*
+** Resets the CPU by watchdog. It initializes CPU state according to CPU reset
+** without touching other hardware and timing.
+*/
+static void  cu_avr_reset_wd(void)
+{
+ auint i;
+
+ for (i = 0U; i < 256U; i++){ /* Most I/O regs are reset to zero */
+  cpu_state.iors[i] = 0U;
+ }
+ cpu_state.iors[CU_IO_SPL] = 0xFFU;
+ cpu_state.iors[CU_IO_SPH] = 0x10U;
+
+ cpu_state.latch = 0U;
+
+ cpu_state.pc = (((cpu_state.fuse[1] & 1U) ^ 1U) * VBASE_BOOT) + VECT_RESET;
+
+ cpu_state.spi_tran = FALSE;
+ cpu_state.wd_end   = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
+ cpu_state.eep_wrte = FALSE;
+ cpu_state.spm_prge = FALSE;
+
+ cu_avr_io_update();
+}
+
+
+
+/*
 ** Emulates cycle-precise hardware tasks. This is called through the
 ** UPDATE_HARDWARE macro if cycle_next_event matches the cycle counter (a new
 ** HW event is to be processed).
@@ -319,16 +347,17 @@ static void cu_avr_hwexec(void)
 
  }
 
- /* Watchdog (in Uzebox used to seed random number generators) */
+ /* Watchdog (in Uzebox used to seed random number generators and soft reset) */
 
  if ((cpu_state.iors[CU_IO_WDTCSR] & 0x48U) != 0U){ /* Watchdog is operational */
 
-  /* Assume interrupt mode (this is used for random number generator seeding) */
-
-  if (cpu_state.cycle == cpu_state.wd_end){
-   cpu_state.iors[CU_IO_WDTCSR] |= 0x80U; /* Watchdog interrupt */
+  if (cpu_state.cycle == cpu_state.wd_end){ /* Watchdog timed out */
+   cpu_state.iors[CU_IO_WDTCSR] |= 0x80U;   /* Watchdog interrupt flag */
    event_it = TRUE;
-   cpu_state.wd_end  = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
+   cpu_state.wd_end = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
+   if ((cpu_state.iors[CU_IO_WDTCSR] & 0x48U) == 0x08U){ /* WDE set & WDIE clear: System reset! */
+    cu_avr_reset_wd();
+   }
   }
 
   t0 = WRAP32(cpu_state.wd_end - cpu_state.cycle);
@@ -490,7 +519,10 @@ static void cu_avr_itcheck(void)
 
  }else if ( (cpu_state.iors[CU_IO_WDTCSR] & 0xC0U) == 0xC0U ){ /* Watchdog */
 
-  cpu_state.iors[CU_IO_WDTCSR] ^= 0x80U; /* Assume interrupt mode (only clearing the WDIF flag) */
+  cpu_state.iors[CU_IO_WDTCSR] &= 0x7FU;             /* Always clear WDIF */
+  if ((cpu_state.iors[CU_IO_WDTCSR] & 0x08U) != 0U){ /* WDE */
+   cpu_state.iors[CU_IO_WDTCSR] &= 0xBFU;            /* Clear WDIE too (next WD timeout is a sys reset) */
+  }
   event_it_enter = TRUE;
   event_it_vect  = vbase + VECT_WDT;
 
@@ -975,16 +1007,6 @@ void  cu_avr_reset(void)
   audio_samples[i] = 0x80U;
  }
 
- for (i = 0U; i < 256U; i++){ /* Most I/O regs are reset to zero */
-  cpu_state.iors[i] = 0U;
- }
- cpu_state.iors[CU_IO_SPL] = 0xFFU;
- cpu_state.iors[CU_IO_SPH] = 0x10U;
-
- cpu_state.latch = 0U;
-
- cpu_state.pc = (((cpu_state.fuse[1] & 1U) ^ 1U) * VBASE_BOOT) + VECT_RESET;
-
  cpu_state.cycle    = 0U;
  video_pulsectr     = 0U;
  video_pedge        = cpu_state.cycle;
@@ -999,10 +1021,6 @@ void  cu_avr_reset(void)
  event_it_enter     = FALSE;
  wd_last            = cpu_state.cycle;
  wd_last_pc         = 0U;
- cpu_state.spi_tran = FALSE;
- cpu_state.wd_end   = WRAP32(cu_avr_getwdto() + cpu_state.cycle);
- cpu_state.eep_wrte = FALSE;
- cpu_state.spm_prge = FALSE;
 
  wd_interval_min[0] = WD_INTERVAL_MAX;
  wd_interval_min[1] = 0U;
@@ -1017,8 +1035,8 @@ void  cu_avr_reset(void)
  }
 
  cu_avr_crom_update(0U, 65536U);
- cu_avr_io_update();
 
+ cu_avr_reset_wd();
  cu_ctr_reset();
  cu_spi_reset(cpu_state.cycle);
 
