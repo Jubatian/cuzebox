@@ -56,6 +56,9 @@ The emulator itself can be controlled with the following keys:
 - F11: Toggle full screen
 - F12: Toggle between 1 player and 2 player controller allocation
 
+You can direct keyboard input to Player 2's SNES controller by holding down
+AltGr (Right ALT key).
+
 The UZEM keymap maps the buttons of the SNES controller according to the Uzem
 emulator with the addition that 'Y' also triggers an SNES Y button press (so
 the mapping is useful on a QWERTZ keyboard). It is not recommended for
@@ -116,9 +119,9 @@ you write the FAT first.
 A bootloader can be started simply by passing the bootloader's .hex file as
 parameter to the emulator. The virtual SD card is composed from the files
 existing in the same directory. Note that the emulator can not remember what
-the bootloader wrote last time into the flash (so you can not start the last
-selected game with the normal Uzebox bootloader as it recognizes the game by a
-CRC written in EEPROM, not by flash content).
+the bootloader wrote last time into the flash. (So you can not start the last
+selected game with the 0.4.5 bootloader as it recognizes the game by a CRC
+written in EEPROM, not by flash content. The 5.x.yy bootloaders work fine)
 
 
 

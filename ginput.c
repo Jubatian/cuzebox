@@ -35,6 +35,9 @@
 /* Request Uzem style keymapping */
 static boole ginput_kbuzem = FALSE;
 
+/* Directing keyboard input to Player 2 */
+static boole ginput_kbp2 = FALSE;
+
 /* Request 2 players controller allocation */
 static boole ginput_2palloc = FALSE;
 
@@ -262,6 +265,7 @@ void  ginput_sendevent(SDL_Event const* ev)
       ((ev->type) == SDL_KEYUP) ){
 
   if ((ev->type) == SDL_KEYDOWN){ press = TRUE; }
+  if (ginput_kbp2){ player = 1U; }
 
   /* Note: For SDL2 the scancode has more sense here, but SDL1 does not
   ** support that. This solution works for now on both. For the Uzem
@@ -269,6 +273,9 @@ void  ginput_sendevent(SDL_Event const* ev)
   ** QWERTY and a QWERTZ keyboard. */
 
   switch (ev->key.keysym.sym){
+   case SDLK_RALT:
+    ginput_kbp2 = press; /* AltGr down => Keyboard input goes to P2 */
+    break;
    case SDLK_LEFT:
 #ifndef USE_SDL1
     ginput_gamectr_ddig[player][0] = press;
