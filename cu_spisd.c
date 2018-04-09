@@ -578,7 +578,7 @@ void  cu_spisd_send(auint data, auint cycle)
        break;
 
       case 59U: /* Toggle CRC checks */
-       sd_state.crc = (sd_state.crarg == 0x00000000U);
+       sd_state.crc = ((sd_state.crarg & 1U) != 0U);
        break;
 
       case (41U | SCMD_A): /* Initiate initialization */
@@ -715,7 +715,7 @@ void  cu_spisd_send(auint data, auint cycle)
       break;
 
      case 59U: /* Toggle CRC checks */
-      sd_state.crc = (sd_state.crarg == 0x00000000U);
+      sd_state.crc = ((sd_state.crarg & 1U) != 0U);
       break;
 
      case (23U | SCMD_A): /* Blocks to pre-erase */
