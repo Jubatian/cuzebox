@@ -244,6 +244,8 @@ auint           wd_interval_end[2];
 #define VECT_T1OVF     0x001EU
 /* SPI */
 #define VECT_SPISTC    0x0026U
+/* USART0_TXC */
+#define VECT_USART0_TX 0x002CU
 
 
 
@@ -362,6 +364,25 @@ static void cu_avr_hwexec(void)
 
   t0 = WRAP32(cpu_state.wd_end - cpu_state.cycle);
   if (nextev > t0){ nextev = t0; }
+
+ }
+
+ /* USART0 peripherals (RLE mode end scanline) */
+
+ if (cpu_state.usr0_tran){
+
+  if (cpu_state.cycle == cpu_state.usr0_end){
+
+   cpu_state.usr0_tran = FALSE;
+   cpu_state.iors[CU_IO_UCSR0A] |= 0x40U; /* USART0 TX complete flag */
+   event_it = TRUE;
+
+  }else{
+
+   t0 = WRAP32(cpu_state.usr0_end - cpu_state.cycle);
+   if (nextev > t0){ nextev = t0; }
+
+  }
 
  }
 
@@ -546,6 +567,12 @@ static void cu_avr_itcheck(void)
   cpu_state.iors[CU_IO_TIFR1] ^= 0x01U;
   event_it_enter = TRUE;
   event_it_vect  = vbase + VECT_T1OVF;
+
+ }else if ( (cpu_state.iors[CU_IO_UCSR0A] & 0x40U) !=    0U ){ /* USART0 dodgy timer interrupt */
+
+  cpu_state.iors[CU_IO_UCSR0A] ^= 0x40U;
+  event_it_enter = TRUE;
+  event_it_vect  = vbase + VECT_USART0_TX;
 
  }else{ /* No interrupts are pending */
 
@@ -760,6 +787,16 @@ static void  cu_avr_write_io(auint port, auint val)
   case CU_IO_OCR1BL:  /* Timer1 comparator B, low */
 
    cycle_next_event = WRAP32(cpu_state.cycle + 1U); /* Request HW processing */
+   break;
+
+
+  case CU_IO_UDR0:    /* USART0 data */
+   cpu_state.usr0_tran = TRUE;
+   cpu_state.usr0_end  = WRAP32( cpu_state.cycle + 1304 );
+   if ( (WRAP32(cycle_next_event  - cpu_state.cycle)) >
+        (WRAP32(cpu_state.usr0_end - cpu_state.cycle)) ){
+    cycle_next_event = cpu_state.usr0_end; /* Set USR HW processing target */
+   }
    break;
 
   case CU_IO_SPDR:    /* SPI data */
