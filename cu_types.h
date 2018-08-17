@@ -119,6 +119,8 @@ typedef struct{
  boole spm_prge;      /* SPM erasing or programming in progress */
  auint spm_mode;      /* SPM selected mode for the next SPM instruction */
  auint spm_end;       /* SPM enable end cycle */
+ boole usr0_tran;     /* USART0 transfer in progress */
+ auint usr0_end;      /* USART0 transfer end cycle */
 }cu_state_cpu_t;
 
 
