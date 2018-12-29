@@ -1,7 +1,7 @@
 /*
  *  Game input processing
  *
- *  Copyright (C) 2016 - 2017
+ *  Copyright (C) 2016 - 2018
  *    Sandor Zsuga (Jubatian)
  *  Uzem (the base of CUzeBox) is copyright (C)
  *    David Etherton,
@@ -35,8 +35,9 @@
 /* Request Uzem style keymapping */
 static boole ginput_kbuzem = FALSE;
 
-/* Directing keyboard input to Player 2 */
-static boole ginput_kbp2 = FALSE;
+/* Directing keyboard input to Player 2 (for two redirect keys) */
+static boole ginput_kbp2_0 = FALSE;
+static boole ginput_kbp2_1 = FALSE;
 
 /* Request 2 players controller allocation */
 static boole ginput_2palloc = FALSE;
@@ -265,7 +266,8 @@ void  ginput_sendevent(SDL_Event const* ev)
       ((ev->type) == SDL_KEYUP) ){
 
   if ((ev->type) == SDL_KEYDOWN){ press = TRUE; }
-  if (ginput_kbp2){ player = 1U; }
+  if ( (ginput_kbp2_0) ||
+       (ginput_kbp2_1) ){ player = 1U; }
 
   /* Note: For SDL2 the scancode has more sense here, but SDL1 does not
   ** support that. This solution works for now on both. For the Uzem
@@ -274,7 +276,10 @@ void  ginput_sendevent(SDL_Event const* ev)
 
   switch (ev->key.keysym.sym){
    case SDLK_RALT:
-    ginput_kbp2 = press; /* AltGr down => Keyboard input goes to P2 */
+    ginput_kbp2_0 = press; /* AltGr down => Keyboard input goes to P2 */
+    break;
+   case SDLK_LALT:
+    ginput_kbp2_1 = press; /* Alt down => Keyboard input goes to P2 */
     break;
    case SDLK_LEFT:
 #ifndef USE_SDL1

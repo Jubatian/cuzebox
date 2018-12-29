@@ -39,8 +39,8 @@ On the keybouard, you can control Player 1's SNES controller as follows:
 - S: Button A
 - Enter: Start
 - Space: Select
-- Left shift: Left shift
-- Right shift: Right shift
+- Left shift: Left shoulder
+- Right shift: Right shoulder
 
 The emulator itself can be controlled with the following keys:
 
@@ -57,7 +57,7 @@ The emulator itself can be controlled with the following keys:
 - F12: Toggle between 1 player and 2 player controller allocation
 
 You can direct keyboard input to Player 2's SNES controller by holding down
-AltGr (Right ALT key).
+either ALT key.
 
 The UZEM keymap maps the buttons of the SNES controller according to the Uzem
 emulator with the addition that 'Y' also triggers an SNES Y button press (so
