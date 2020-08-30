@@ -31,21 +31,13 @@
 
 
 
-/*
-** Note:
-**
-** This uses the legacy SDL API to support compiling with SDL1 as well. Don't
-** try to "fix" this! (It will break SDL1 builds, notably Emscripten!)
-*/
 
-
-
+/* Uzebox's audio frequency (that is, as the emulator does it, the line
+** frequency of NTSC signal, in hertz) */
+#define AUDIO_LFREQ    15734U
 
 /* Whole for the audio sample increment, bits */
 #define AUDIO_INC_W    17U
-
-/* Preferred audio sample increment fraction */
-#define AUDIO_INC_P    (((auint)(15734U) << AUDIO_INC_W) / 48000U)
 
 /* Audio output buffer size, must be a power of 2 (48KHz samples) */
 #ifndef __EMSCRIPTEN__
@@ -88,6 +80,9 @@ static auint audio_buf_w;
 /* Audio device */
 static auint audio_dev = 0U;
 
+/* Calculated increment fraction, depends on hardware audio frequency */
+static auint audio_inc_p = 0U;
+
 /* Read pointer increment fraction for audio output (used to scale frequency) */
 static auint audio_inc;
 
@@ -124,7 +119,7 @@ void audio_callback(void* dummy, Uint8* stream, int len)
  if (audio_frun){
   audio_buf_r = 0U;
   audio_buf_w = AUDIO_FILL;
-  audio_inc   = AUDIO_INC_P;
+  audio_inc   = audio_inc_p;
   audio_frac  = 0U;
   audio_pbrav = audio_buf_w;
   for (i = 0U; i < 31U; i++){ audio_pbrem[i] = audio_buf_w; }
@@ -149,11 +144,11 @@ void audio_callback(void* dummy, Uint8* stream, int len)
   /* Propotional */
 
   if       (brav < AUDIO_FILL){
-   if (audio_inc > (((AUDIO_INC_P) *  50U) / 100U)){ /* Allow slow down to 50% (for too slow machines) */
+   if (audio_inc > (((audio_inc_p) *  50U) / 100U)){ /* Allow slow down to 50% (for too slow machines) */
     audio_inc --;
    }
   }else if (brav > AUDIO_FILL){
-   if (audio_inc < (((AUDIO_INC_P) * 105U) / 100U)){
+   if (audio_inc < (((audio_inc_p) * 105U) / 100U)){
     audio_inc ++;
    }
   }else{}
@@ -213,6 +208,45 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 
 
 
+#ifndef USE_SDL1
+#ifdef  TARGET_WINDOWS_MINGW
+/* On Windows try to resolve WASAPI bugs with SDL2 by prioritizing DirectSound
+** if it is available. Call before initializing audio subsystem. Note that the
+** emulator can use WASAPI, but on some systems / driver combinations it was
+** reported to be buggy. */
+static void audio_wasapi_workaround(void)
+{
+ auint       didx   = SDL_GetNumAudioDrivers();
+ boole       hasds  = FALSE;
+ const char* drvname;
+ const char* dsound = "directsound";
+ auint       dslen  = strlen(dsound);
+
+ while (didx != 0U){
+  /* Find out whether directsound is actually available since if it isn't,
+  ** setting the environment variable to use it will cause audio
+  ** initialization to fail. */
+  didx --;
+  drvname = SDL_GetAudioDriver(didx);
+  if (drvname != NULL){
+   if (strncmp(dsound, drvname, dslen) == 0){
+    hasds = TRUE;
+   }
+  }
+ }
+
+ if (hasds){
+  /* If it is available, set environment var. to use it, but only unless it is
+  ** already set to something else (no overwrite), so it is still possible to
+  ** select the audio driver externally. */
+  SDL_setenv("SDL_AUDIODRIVER", dsound, 0);
+ }
+}
+#endif
+#endif
+
+
+
 /*
 ** Attempts to initialize audio. If it returns false, no sound will be
 ** generated.
@@ -220,7 +254,9 @@ void audio_callback(void* dummy, Uint8* stream, int len)
 boole audio_init(void)
 {
  SDL_AudioSpec desired;
- SDL_AudioSpec dummy;
+#ifndef USE_SDL1
+ SDL_AudioSpec have;
+#endif
 
  if (audio_dev == 0U){
 
@@ -232,11 +268,33 @@ boole audio_init(void)
   desired.channels = 1U;
   desired.samples  = AUDIO_OUT_SIZE;
 
-  audio_dev = 1U;
-  if (SDL_OpenAudio(&desired, &dummy) < 0){ audio_dev = 0U; }
-  if (audio_dev != 0U){ SDL_PauseAudio(1); }
-
   audio_frun = TRUE;
+
+#ifdef USE_SDL1
+
+  SDL_InitSubSystem(SDL_INIT_AUDIO);
+  audio_dev = 1U;
+  if (SDL_OpenAudio(&desired, NULL) < 0){ audio_dev = 0U; }
+  if (audio_dev != 0U){
+   SDL_PauseAudio(1);
+   audio_inc_p = (((auint)(AUDIO_LFREQ) << AUDIO_INC_W) / 48000U);
+  }
+
+#else
+
+#ifdef TARGET_WINDOWS_MINGW
+  /* On Windows SDL2 builds, attempt WASAPI workaround. */
+  audio_wasapi_workaround();
+#endif
+
+  SDL_InitSubSystem(SDL_INIT_AUDIO);
+  audio_dev = SDL_OpenAudioDevice(NULL, 0, &desired, &have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+  if (audio_dev != 0U){
+   SDL_PauseAudioDevice(audio_dev, 1);
+   audio_inc_p = (((auint)(AUDIO_LFREQ) << AUDIO_INC_W) / have.freq);
+  }
+
+#endif
 
  }
 
@@ -251,7 +309,11 @@ boole audio_init(void)
 void  audio_reset(void)
 {
  audio_frun = TRUE;
+#ifdef USE_SDL1
  if (audio_dev != 0U){ SDL_PauseAudio(0); }
+#else
+ if (audio_dev != 0U){ SDL_PauseAudioDevice(audio_dev, 0); }
+#endif
 }
 
 
@@ -262,7 +324,11 @@ void  audio_reset(void)
 void  audio_quit(void)
 {
  if (audio_dev != 0U){
+#ifdef USE_SDL1
   SDL_CloseAudio();
+#else
+  SDL_CloseAudioDevice(audio_dev);
+#endif
   audio_dev = 0U;
  }
 }

@@ -229,14 +229,14 @@ boole guicore_init(auint flags, const char* title)
 
 #ifdef USE_SDL1
 
-  if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0){
+  if (SDL_Init(SDL_INIT_VIDEO) != 0){
    print_error(guicore_sdlerr, SDL_GetError());
    goto fail_n;
   }
 
 #else
 
-  if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0){
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0){
    print_error(guicore_sdlerr, SDL_GetError());
    goto fail_n;
   }
